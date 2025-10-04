@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import { supabase } from '@/lib/supabase';
-import { generateEmbedMetadata } from '@/lib/farcaster';
 import { notFound } from 'next/navigation';
 import { MusicTrack } from '@/types/music';
 import Image from 'next/image';
@@ -29,7 +28,22 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.vercel.app';
     const artwork = data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music';
-    const embedMetadata = generateEmbedMetadata(data.id, artwork, baseUrl);
+
+    // Generate Mini App metadata
+    const miniAppMetadata = {
+      version: '1',
+      imageUrl: artwork,
+      button: {
+        title: '▶ Play',
+        action: {
+          type: 'launch',
+          name: 'Music Player',
+          url: `${baseUrl}/play?trackId=${data.id}`,
+          splashImageUrl: `${baseUrl}/curio.png`,
+          splashBackgroundColor: '#1a1a1a',
+        },
+      },
+    };
 
     return {
       title: `${data.song_title} - ${data.artist}`,
@@ -37,11 +51,29 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
       openGraph: {
         title: data.song_title,
         description: `by ${data.artist}`,
-        images: [artwork],
+        images: [
+          {
+            url: artwork,
+            width: 1200,
+            height: 630,
+            alt: `${data.song_title} by ${data.artist}`,
+          }
+        ],
         type: 'music.song',
       },
+      twitter: {
+        card: 'summary_large_image',
+        title: data.song_title,
+        description: `by ${data.artist}`,
+        images: [artwork],
+      },
       other: {
-        'fc:miniapp': JSON.stringify(embedMetadata),
+        'fc:frame': 'vNext',
+        'fc:frame:image': artwork,
+        'fc:frame:image:aspect_ratio': '1.91:1',
+        'fc:frame:button:1': '▶ Play',
+        'fc:frame:button:1:action': 'link',
+        'fc:frame:button:1:target': `${baseUrl}/play?trackId=${data.id}`,
       },
     };
   } catch (error) {
