@@ -29,10 +29,11 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.vercel.app';
     const artwork = data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music';
 
-    // Generate Mini App metadata
+    // Generate Mini App metadata with 3:2 aspect ratio image
     const miniAppMetadata = {
       version: '1',
       imageUrl: artwork,
+      imageAspectRatio: '3:2',
       button: {
         title: '▶ Play',
         action: {
@@ -55,7 +56,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
           {
             url: artwork,
             width: 1200,
-            height: 630,
+            height: 800,
             alt: `${data.song_title} by ${data.artist}`,
           }
         ],
@@ -68,12 +69,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
         images: [artwork],
       },
       other: {
-        'fc:frame': 'vNext',
-        'fc:frame:image': artwork,
-        'fc:frame:image:aspect_ratio': '1.91:1',
-        'fc:frame:button:1': '▶ Play',
-        'fc:frame:button:1:action': 'link',
-        'fc:frame:button:1:target': `${baseUrl}/play?trackId=${data.id}`,
+        'fc:miniapp': JSON.stringify(miniAppMetadata),
       },
     };
   } catch (error) {
