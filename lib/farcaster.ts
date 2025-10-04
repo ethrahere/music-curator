@@ -65,10 +65,10 @@ export function generateEmbedMetadata(
     button: {
       title: '▶ Play',
       action: {
-        type: 'launch_frame',
+        type: 'launch',
         name: 'Music Player',
         url: `${baseUrl}/play?trackId=${trackId}`,
-        splashImageUrl: `${baseUrl}/icon.png`,
+        splashImageUrl: `${baseUrl}/curio.png`,
         splashBackgroundColor: '#1a1a1a',
       },
     },

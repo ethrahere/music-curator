@@ -1,7 +1,8 @@
 import { Metadata } from 'next';
-import { musicStore } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import { generateEmbedMetadata } from '@/lib/farcaster';
 import { notFound } from 'next/navigation';
+import { MusicTrack } from '@/types/music';
 
 interface TrackPageProps {
   params: Promise<{ id: string }>;
@@ -9,35 +10,77 @@ interface TrackPageProps {
 
 export async function generateMetadata({ params }: TrackPageProps): Promise<Metadata> {
   const { id } = await params;
-  const track = musicStore.getTrack(id);
 
-  if (!track) {
+  try {
+    // Fetch track from Supabase
+    const { data, error } = await supabase
+      .from('recommendations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      return {
+        title: 'Track Not Found',
+        description: 'Music track not found on Music Curator',
+      };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.vercel.app';
+    const artwork = data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music';
+    const embedMetadata = generateEmbedMetadata(data.id, artwork, baseUrl);
+
+    return {
+      title: `${data.song_title} - ${data.artist}`,
+      description: `Listen to ${data.song_title} by ${data.artist} on Music Curator`,
+      openGraph: {
+        title: data.song_title,
+        description: `by ${data.artist}`,
+        images: [artwork],
+        type: 'music.song',
+      },
+      other: {
+        'fc:miniapp': JSON.stringify(embedMetadata),
+      },
+    };
+  } catch (error) {
+    console.error('Error generating metadata:', error);
     return {
       title: 'Track Not Found',
+      description: 'Music track not found on Music Curator',
     };
   }
-
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.app';
-  const embedMetadata = generateEmbedMetadata(track.id, track.artwork, baseUrl);
-
-  return {
-    title: `${track.title} - ${track.artist}`,
-    description: `Listen to ${track.title} by ${track.artist} on Music Curator`,
-    openGraph: {
-      title: track.title,
-      description: `by ${track.artist}`,
-      images: [track.artwork],
-      type: 'music.song',
-    },
-    other: {
-      'fc:miniapp': JSON.stringify(embedMetadata),
-    },
-  };
 }
 
 export default async function TrackPage({ params }: TrackPageProps) {
   const { id } = await params;
-  const track = musicStore.getTrack(id);
+
+  // Fetch track from Supabase
+  const { data, error } = await supabase
+    .from('recommendations')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) {
+    notFound();
+  }
+
+  const track: MusicTrack = {
+    id: data.id,
+    url: data.music_url,
+    platform: data.platform || 'other',
+    title: data.song_title,
+    artist: data.artist,
+    artwork: data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
+    embedUrl: data.embed_url || '',
+    tips: data.tip_count,
+    sharedBy: {
+      fid: 0,
+      username: data.curator_address,
+    },
+    timestamp: new Date(data.created_at).getTime(),
+  };
 
   if (!track) {
     notFound();

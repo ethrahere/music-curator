@@ -138,7 +138,7 @@ export async function extractMusicMetadata(url: string): Promise<MusicMetadata> 
   return {
     title: metadata.title || 'Unknown Track',
     artist: metadata.artist || 'Unknown Artist',
-    artwork: metadata.artwork || '/placeholder-artwork.png',
+    artwork: metadata.artwork || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
     embedUrl,
     platform,
   };
