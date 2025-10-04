@@ -1,15 +1,15 @@
 {
-  "accountAssociation": {
-    "header": "eyJmaWQiOjEwMDEzMTMsInR5cGUiOiJhdXRoIiwia2V5IjoiMHgxYzA3QTI1NjcyZTkwODM2QzhENGJkOTQzZmY2ZDIwNkJFNTc5OEYzIn0",
-    "payload": "eyJkb21haW4iOiJjdXJpby1ldGEtc2l4LnZlcmNlbC5hcHAifQ",
-    "signature": "O0Kuufttlr9gUh+YHi8/OF1TwUljWmFZtMKFRKQQ1QVPj3uo9+TvBMSlN0B6QLfP4rai/qE7f+6dPQedmZPMYBw="
-  },
+    "accountAssociation": {
+      "header": "eyJmaWQiOjEwMDEzMTMsInR5cGUiOiJhdXRoIiwia2V5IjoiMHgxYzA3QTI1NjcyZTkwODM2QzhENGJkOTQzZmY2ZDIwNkJFNTc5OEYzIn0",
+      "payload": "eyJkb21haW4iOiJtdXNpYy1jdXJhdG9yLnZlcmNlbC5hcHAifQ",
+      "signature": "gmJWuML38QY1X7My5nXh275zQPvWxq+MMNbxnu6G3AcSdSqV7B2+7SbCPglJKGWlp/OEkjiccOIucGxr0De0MBs="
+    },
   "miniapp": {
     "version": "1",
     "name": "Music Curator",
-    "iconUrl": "https://music-curator.app/icon.png",
+    "iconUrl": "https://music-curator.app/curio.png",
     "homeUrl": "https://music-curator.app/",
-    "splashImageUrl": "https://music-curator.app/splash.png",
+    "splashImageUrl": "https://music-curator.app/curio.png",
     "splashBackgroundColor": "#1a1a1a",
     "primaryCategory": "music",
     "tags": ["music", "curation", "discovery", "streaming", "social"]
