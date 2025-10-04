@@ -29,15 +29,14 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.vercel.app';
     const artwork = data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music';
 
-    // Generate Mini App metadata with 3:2 aspect ratio image
+    // Generate Mini App metadata (image must be 3:2 aspect ratio)
     const miniAppMetadata = {
       version: '1',
       imageUrl: artwork,
-      imageAspectRatio: '3:2',
       button: {
         title: '▶ Play',
         action: {
-          type: 'launch',
+          type: 'launch_frame',
           name: 'Music Player',
           url: `${baseUrl}/play?trackId=${data.id}`,
           splashImageUrl: `${baseUrl}/curio.png`,
