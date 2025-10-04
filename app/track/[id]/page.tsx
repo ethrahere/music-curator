@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { generateEmbedMetadata } from '@/lib/farcaster';
 import { notFound } from 'next/navigation';
 import { MusicTrack } from '@/types/music';
+import Image from 'next/image';
 
 interface TrackPageProps {
   params: Promise<{ id: string }>;
@@ -93,7 +94,7 @@ export default async function TrackPage({ params }: TrackPageProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-6">
       <div className="max-w-md w-full backdrop-blur-md bg-white/5 border border-white/10 rounded-xl p-8 text-center">
         <div className="w-32 h-32 mx-auto mb-6 relative rounded-xl overflow-hidden">
-          <img src={track.artwork} alt={track.title} className="w-full h-full object-cover" />
+          <Image src={track.artwork} alt={track.title} fill className="object-cover" />
         </div>
 
         <h1 className="text-2xl font-bold text-white mb-2">{track.title}</h1>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import SubmitForm from '@/components/SubmitForm';
 import MusicCard from '@/components/MusicCard';
@@ -11,21 +11,10 @@ import { Music2, TrendingUp } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
-  const [initialized, setInitialized] = useState(false);
   const [featuredTracks, setFeaturedTracks] = useState<MusicTrack[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
 
-  useEffect(() => {
-    // Initialize Farcaster SDK
-    initializeFarcaster().then((success) => {
-      setInitialized(success);
-    });
-
-    // Fetch featured tracks
-    fetchFeaturedTracks();
-  }, []);
-
-  const fetchFeaturedTracks = async () => {
+  const fetchFeaturedTracks = useCallback(async () => {
     try {
       const response = await fetch('/api/tracks?sort=most_tipped&limit=4');
       const data = await response.json();
@@ -33,7 +22,15 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to fetch featured tracks:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Initialize Farcaster SDK
+    initializeFarcaster();
+
+    // Fetch featured tracks
+    fetchFeaturedTracks();
+  }, [fetchFeaturedTracks]);
 
   const handleSubmit = async (url: string, metadata: MusicMetadata) => {
     try {

@@ -52,10 +52,21 @@ export async function POST(
 
   if (action === 'tip') {
     try {
+      // First get current tip count
+      const { data: currentData } = await supabase
+        .from('recommendations')
+        .select('tip_count')
+        .eq('id', id)
+        .single();
+
+      if (!currentData) {
+        return NextResponse.json({ error: 'Track not found' }, { status: 404 });
+      }
+
       // Increment tip count
       const { data, error } = await supabase
         .from('recommendations')
-        .update({ tip_count: supabase.sql`tip_count + 1` })
+        .update({ tip_count: currentData.tip_count + 1 })
         .eq('id', id)
         .select()
         .single();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { MusicTrack } from '@/types/music';
 import MusicCard from '@/components/MusicCard';
 import Player from '@/components/Player';
@@ -14,11 +14,7 @@ export default function FeedPage() {
   const [sort, setSort] = useState<SortOption>('recent');
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
 
-  useEffect(() => {
-    fetchTracks();
-  }, [sort]);
-
-  const fetchTracks = async () => {
+  const fetchTracks = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/tracks?sort=${sort}&limit=50`);
@@ -29,7 +25,11 @@ export default function FeedPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sort]);
+
+  useEffect(() => {
+    fetchTracks();
+  }, [fetchTracks]);
 
   const handleTip = async (trackId: string) => {
     try {
