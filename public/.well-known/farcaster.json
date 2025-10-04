@@ -7,9 +7,9 @@
   "miniapp": {
     "version": "1",
     "name": "Music Curator",
-    "iconUrl": "https://music-curator.app/curio.png",
-    "homeUrl": "https://music-curator.app/",
-    "splashImageUrl": "https://music-curator.app/curio.png",
+    "iconUrl": "https://music-curator.vercel.app/curio.png",
+    "homeUrl": "https://music-curator.vercel.app/",
+    "splashImageUrl": "https://music-curator.vercel.app/curio.png",
     "splashBackgroundColor": "#1a1a1a",
     "primaryCategory": "music",
     "tags": ["music", "curation", "discovery", "streaming", "social"]
