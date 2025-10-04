@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { MusicTrack } from '@/types/music';
 import Player from '@/components/Player';
+import { initializeFarcaster } from '@/lib/farcaster';
 
 function PlayPageContent() {
   const searchParams = useSearchParams();
@@ -13,6 +14,9 @@ function PlayPageContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Initialize Farcaster SDK to hide splash screen
+    initializeFarcaster();
+
     if (trackId) {
       fetchTrack(trackId);
     }
