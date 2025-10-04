@@ -60,11 +60,11 @@ export default function Home() {
 
       const data = await response.json();
 
-      if (data.success) {
-        // Share to Farcaster
+      if (data.success && data.track) {
+        // Share to Farcaster using DB-generated ID
         const baseUrl = window.location.origin;
-        const trackUrl = `${baseUrl}/track/${track.id}`;
-        await shareToFarcaster(trackUrl, `🎵 ${track.title} - ${track.artist}`);
+        const trackUrl = `${baseUrl}/track/${data.track.id}`;
+        await shareToFarcaster(trackUrl, `🎵 ${data.track.title} - ${data.track.artist}`);
 
         // Refresh featured tracks
         fetchFeaturedTracks();
