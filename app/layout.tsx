@@ -14,8 +14,50 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Music Curator - Share & Discover Music on Farcaster",
+  title: "Curio - Share & Discover Music on Farcaster",
   description: "A music discovery app for Farcaster. Share tracks from YouTube, Spotify, SoundCloud, and more.",
+  openGraph: {
+    title: "Curio - Music Discovery on Farcaster",
+    description: "Share tracks from YouTube, Spotify, SoundCloud, and more.",
+    images: [
+      {
+        url: "https://music-curator.vercel.app/image-url.png",
+        width: 1200,
+        height: 630,
+        alt: "Curio",
+      },
+    ],
+  },
+  other: {
+    "fc:miniapp": JSON.stringify({
+      version: "1",
+      imageUrl: "https://music-curator.vercel.app/image-url.png",
+      button: {
+        title: "Open Curio",
+        action: {
+          type: "launch",
+          name: "Curio",
+          url: "https://music-curator.vercel.app",
+          splashImageUrl: "https://music-curator.vercel.app/image-url.png",
+          splashBackgroundColor: "#0b1a12",
+        },
+      },
+    }),
+    "fc:frame": JSON.stringify({
+      version: "1",
+      imageUrl: "https://music-curator.vercel.app/image-url.png",
+      button: {
+        title: "Open Curio",
+        action: {
+          type: "launch",
+          name: "Curio",
+          url: "https://music-curator.vercel.app",
+          splashImageUrl: "https://music-curator.vercel.app/image-url.png",
+          splashBackgroundColor: "#0b1a12",
+        },
+      },
+    }),
+  },
 };
 
 export default function RootLayout({
