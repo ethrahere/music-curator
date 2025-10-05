@@ -134,7 +134,14 @@ export default function Home() {
         // Share to Farcaster using DB-generated ID
         const baseUrl = window.location.origin;
         const trackUrl = `${baseUrl}/track/${data.track.id}`;
-        await shareToFarcaster(trackUrl, `🎵 ${data.track.title} - ${data.track.artist}`);
+
+        // Build cast text with optional review
+        let castText = `🎵 ${data.track.title} - ${data.track.artist}`;
+        if (review && review.trim()) {
+          castText = `${review}\n\n🎵 ${data.track.title} - ${data.track.artist}`;
+        }
+
+        await shareToFarcaster(trackUrl, castText);
 
         // Refresh tracks
         setPage(1);
