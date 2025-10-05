@@ -10,8 +10,14 @@
     "iconUrl": "https://music-curator.vercel.app/curio-logo.png",
     "homeUrl": "https://music-curator.vercel.app/",
     "splashImageUrl": "https://music-curator.vercel.app/image-url.png",
-    "splashBackgroundColor": "#1a1a1a",
+    "imageUrl": "https://music-curator.vercel.app/image-url.png",
+    "splashBackgroundColor": "#b4e7c1",
     "primaryCategory": "music",
-    "tags": ["music", "curation", "discovery", "streaming", "social"]
+    "tags": ["music", "curation", "discovery", "streaming", "social"],
+    "heroImageUrl": "https://music-curator.vercel.app/curio.png",
+    "tagline": "Rewarding curation",
+    "ogTitle": "Rewarding curation",
+    "ogDescription": "Curate and earn rewards",
+    "ogImageUrl": "https://music-curator.vercel.app/curio.png"
   }
 }
