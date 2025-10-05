@@ -28,7 +28,7 @@ export async function GET(
       artist: data.artist,
       artwork: data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
       embedUrl: data.embed_url || '',
-      tips: data.tip_count,
+      tips: data.total_tips_usd || 0,
       sharedBy: {
         fid: 0,
         username: data.curator_address,
@@ -84,7 +84,7 @@ export async function POST(
         artist: data.artist,
         artwork: data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
         embedUrl: data.embed_url || '',
-        tips: data.tip_count,
+        tips: data.total_tips_usd || 0,
         sharedBy: {
           fid: 0,
           username: data.curator_address,

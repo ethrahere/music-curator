@@ -1,4 +1,4 @@
-export type MusicPlatform = 'youtube' | 'spotify' | 'soundcloud' | 'bandcamp' | 'other';
+export type MusicPlatform = 'youtube' | 'spotify' | 'soundcloud' | 'bandcamp' | 'apple music' | 'other';
 
 export interface MusicTrack {
   id: string;

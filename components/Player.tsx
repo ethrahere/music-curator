@@ -1,9 +1,9 @@
 'use client';
 
 import { MusicTrack } from '@/types/music';
-import { Heart, Share2, X } from 'lucide-react';
+import { Share2, X, DollarSign, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
-import { shareToFarcaster } from '@/lib/farcaster';
+import { shareToFarcaster, sendTip, getUserContext } from '@/lib/farcaster';
 import { useState } from 'react';
 
 interface PlayerProps {
@@ -15,6 +15,12 @@ interface PlayerProps {
 
 export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) {
   const [sharing, setSharing] = useState(false);
+  const [tipping, setTipping] = useState(false);
+  const [showTipAmounts, setShowTipAmounts] = useState(false);
+  const [customAmount, setCustomAmount] = useState('');
+  const [tipSuccess, setTipSuccess] = useState(false);
+
+  const tipAmounts = [1, 5, 10];
 
   const handleShare = async () => {
     setSharing(true);
@@ -26,55 +32,90 @@ export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) 
     setSharing(false);
   };
 
+  const handleTip = async (amount: number) => {
+    setTipping(true);
+    try {
+      // Get tipper context
+      const tipper = await getUserContext();
+
+      // Send USDC tip via Farcaster SDK
+      const result = await sendTip(track.sharedBy.fid, amount);
+
+      if (result.success) {
+        // Record tip in database
+        const response = await fetch(`/api/tracks/${track.id}/tip`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount,
+            tipperFid: tipper.fid,
+            tipperUsername: tipper.username,
+            transaction: result.transaction,
+          }),
+        });
+
+        if (response.ok) {
+          // Show success animation
+          setTipSuccess(true);
+          setTimeout(() => setTipSuccess(false), 2000);
+
+          // Update local state
+          onTip(track.id);
+
+          // Hide tip amounts
+          setShowTipAmounts(false);
+          setCustomAmount('');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to tip:', error);
+    } finally {
+      setTipping(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'linear-gradient(135deg, #07110b 0%, #0b1a12 100%)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 relative rounded-lg overflow-hidden">
-            <Image src={track.artwork} alt={track.title} fill className="object-cover" />
+      <div className="p-4">
+        <div className="panel-surface px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 relative rounded-xl overflow-hidden shadow-md">
+              <Image src={track.artwork} alt={track.title} fill className="object-cover" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-[#0b1a12] text-base">{track.title}</h2>
+              <p className="text-sm text-[#2d4a3a]">{track.artist}</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-white text-sm">{track.title}</h2>
-            <p className="text-xs text-white/60">{track.artist}</p>
-          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all hover:scale-105"
+          >
+            <X className="w-5 h-5 text-[#0b1a12]" />
+          </button>
         </div>
-        <button
-          onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-        >
-          <X className="w-5 h-5 text-white" />
-        </button>
       </div>
 
       {/* Player Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-auto">
-        {/* Artwork */}
-        <div className="w-full max-w-md aspect-square relative rounded-2xl overflow-hidden shadow-2xl mb-8">
-          <Image
-            src={track.artwork}
-            alt={track.title}
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 overflow-auto">
 
         {/* Track Info */}
         <div className="text-center mb-8 max-w-md">
-          <h1 className="text-2xl font-bold text-white mb-2">{track.title}</h1>
-          <p className="text-lg text-white/70 mb-4">{track.artist}</p>
-          <div className="flex items-center justify-center gap-2 text-sm text-white/50">
-            <span>Shared by {track.sharedBy.username}</span>
-            <span>•</span>
-            <span className="capitalize">{track.platform}</span>
+          <h1 className="text-3xl font-bold text-white mb-2">{track.title}</h1>
+          <p className="text-xl text-white/80 mb-4">{track.artist}</p>
+          <div className="flex items-center justify-center gap-3">
+            <span className="pill-tag">{track.platform}</span>
+            <span className="text-sm text-white/60">
+              by {track.sharedBy.username}
+            </span>
           </div>
         </div>
 
         {/* Embedded Player */}
         {track.embedUrl && (
           <div className="w-full max-w-2xl mb-8">
-            <div className="relative w-full rounded-xl overflow-hidden shadow-2xl border border-white/10">
+            <div className="relative w-full rounded-2xl overflow-hidden shadow-2xl border-2 border-[#2d4a3a]/40">
               {track.platform === 'soundcloud' ? (
                 <iframe
                   width="100%"
@@ -111,26 +152,106 @@ export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) 
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => onTip(track.id)}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-semibold transition-all shadow-lg shadow-pink-500/25"
-          >
-            <Heart className="w-5 h-5" />
-            <span>Tip</span>
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-sm">
-              {track.tips}
-            </span>
-          </button>
+        <div className="flex flex-col items-center gap-4 w-full max-w-md">
+          {/* Success Animation */}
+          {tipSuccess && (
+            <div className="animate-bounce text-white text-lg font-bold">
+              🎉 Tip sent successfully! 💰
+            </div>
+          )}
 
-          <button
-            onClick={handleShare}
-            disabled={sharing}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold transition-all disabled:opacity-50"
-          >
-            <Share2 className="w-5 h-5" />
-            <span>{sharing ? 'Sharing...' : 'Share'}</span>
-          </button>
+          {/* Tip Amount Selection */}
+          {showTipAmounts && (
+            <div className="panel-surface p-6 w-full animate-in fade-in slide-in-from-bottom-4">
+              <h3 className="text-lg font-bold text-[#0b1a12] mb-4 text-center">
+                Select Tip Amount (USDC)
+              </h3>
+
+              {/* Quick amounts */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {tipAmounts.map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => handleTip(amount)}
+                    disabled={tipping}
+                    className="px-6 py-4 rounded-xl bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] font-bold transition-all shadow-md hover:scale-105 disabled:opacity-50"
+                  >
+                    ${amount}
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom amount */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#2d4a3a] opacity-50" />
+                  <input
+                    type="number"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="Custom amount"
+                    min="1"
+                    step="1"
+                    className="input-shell w-full pl-11"
+                  />
+                </div>
+                <button
+                  onClick={() => customAmount && handleTip(Number(customAmount))}
+                  disabled={!customAmount || tipping}
+                  className="btn-pastel w-full disabled:opacity-50"
+                >
+                  {tipping ? 'Processing...' : 'Send Custom Tip'}
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowTipAmounts(false)}
+                className="w-full mt-4 py-2 text-[#2d4a3a] hover:text-[#0b1a12] text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {/* Main action buttons */}
+          {!showTipAmounts && (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <button
+                onClick={() => setShowTipAmounts(true)}
+                className="flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] font-bold transition-all shadow-lg shadow-[#7fd4a8]/30 hover:scale-105"
+              >
+                <DollarSign className="w-5 h-5" />
+                <span>Tip</span>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#0b1a12]/20 text-sm font-semibold">
+                  ${track.tips}
+                </span>
+              </button>
+
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="flex items-center gap-2 px-8 py-4 rounded-full bg-white/10 hover:bg-white/20 border-2 border-white/30 text-white font-semibold transition-all disabled:opacity-50 hover:scale-105"
+              >
+                <Share2 className="w-5 h-5" />
+                <span>{sharing ? 'Sharing...' : 'Share'}</span>
+              </button>
+
+              {/* Open in Platform Button */}
+              {(track.platform === 'spotify' || track.platform === 'apple music') && (
+                <a
+                  href={track.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-8 py-4 rounded-full bg-white/10 hover:bg-white/20 border-2 border-white/30 text-white font-semibold transition-all hover:scale-105"
+                >
+                  <ExternalLink className="w-5 h-5" />
+                  <span>
+                    Open in {track.platform === 'spotify' ? 'Spotify' : 'Apple Music'}
+                  </span>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

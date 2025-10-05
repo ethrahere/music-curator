@@ -7,7 +7,7 @@
   "miniapp": {
     "version": "1",
     "name": "Music Curator",
-    "iconUrl": "https://music-curator.vercel.app/curio.png",
+    "iconUrl": "https://music-curator.vercel.app/curio-logo.png",
     "homeUrl": "https://music-curator.vercel.app/",
     "splashImageUrl": "https://music-curator.vercel.app/curio.png",
     "splashBackgroundColor": "#1a1a1a",

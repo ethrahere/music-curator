@@ -1,38 +1,103 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import SubmitForm from '@/components/SubmitForm';
+import ShareMusicModal from '@/components/ShareMusicModal';
 import MusicCard from '@/components/MusicCard';
 import Player from '@/components/Player';
 import { MusicTrack, MusicMetadata } from '@/types/music';
 import { initializeFarcaster, getUserContext, shareToFarcaster } from '@/lib/farcaster';
-import { Music2, TrendingUp } from 'lucide-react';
+import { Music2, TrendingUp, Loader2, Plus, User } from 'lucide-react';
+import Image from 'next/image';
 
 export default function Home() {
   const router = useRouter();
-  const [featuredTracks, setFeaturedTracks] = useState<MusicTrack[]>([]);
+  const [tracks, setTracks] = useState<MusicTrack[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [userContext, setUserContext] = useState<{ fid: number; username: string; pfpUrl?: string } | null>(null);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
-  const fetchFeaturedTracks = useCallback(async () => {
+  const LIMIT = 12;
+
+  const fetchTracks = useCallback(async (pageNum: number) => {
+    if (loading) return;
+
+    setLoading(true);
     try {
-      const response = await fetch('/api/tracks?sort=most_tipped&limit=4');
+      const offset = (pageNum - 1) * LIMIT;
+      const response = await fetch(`/api/tracks?sort=most_tipped&limit=${LIMIT}&offset=${offset}`);
       const data = await response.json();
-      setFeaturedTracks(data.tracks || []);
+
+      const newTracks = data.tracks || [];
+
+      if (pageNum === 1) {
+        setTracks(newTracks);
+      } else {
+        setTracks(prev => [...prev, ...newTracks]);
+      }
+
+      setHasMore(newTracks.length === LIMIT);
     } catch (error) {
-      console.error('Failed to fetch featured tracks:', error);
+      console.error('Failed to fetch tracks:', error);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
-    // Initialize Farcaster SDK
-    initializeFarcaster();
+    // Initialize Farcaster SDK and get user context
+    const init = async () => {
+      await initializeFarcaster();
+      const user = await getUserContext();
+      setUserContext(user);
+    };
+    init();
 
-    // Fetch featured tracks
-    fetchFeaturedTracks();
-  }, [fetchFeaturedTracks]);
+    // Fetch initial tracks
+    fetchTracks(1);
+  }, []);
 
-  const handleSubmit = async (url: string, metadata: MusicMetadata) => {
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setPage(prev => prev + 1);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loading]);
+
+  // Fetch tracks when page changes
+  useEffect(() => {
+    if (page > 1) {
+      fetchTracks(page);
+    }
+  }, [page]);
+
+  const handleSubmit = async (
+    url: string,
+    metadata: MusicMetadata,
+    review?: string,
+    genre?: string,
+    moods?: string[]
+  ) => {
     try {
       // Get user context
       const user = await getUserContext();
@@ -51,11 +116,16 @@ export default function Home() {
         timestamp: Date.now(),
       };
 
-      // Save track
+      // Save track with optional fields
       const response = await fetch('/api/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(track),
+        body: JSON.stringify({
+          ...track,
+          review: review || '',
+          genre: genre || 'general',
+          moods: moods || [],
+        }),
       });
 
       const data = await response.json();
@@ -66,8 +136,9 @@ export default function Home() {
         const trackUrl = `${baseUrl}/track/${data.track.id}`;
         await shareToFarcaster(trackUrl, `🎵 ${data.track.title} - ${data.track.artist}`);
 
-        // Refresh featured tracks
-        fetchFeaturedTracks();
+        // Refresh tracks
+        setPage(1);
+        fetchTracks(1);
       }
     } catch (error) {
       console.error('Failed to submit track:', error);
@@ -83,7 +154,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (data.success) {
-        setFeaturedTracks((prev) =>
+        setTracks((prev) =>
           prev.map((t) => (t.id === trackId ? { ...t, tips: t.tips + 1 } : t))
         );
         if (selectedTrack?.id === trackId) {
@@ -96,49 +167,78 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900">
-      {/* Header */}
-      <header className="border-b border-white/10 backdrop-blur-xl bg-black/30">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <Music2 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Music Curator</h1>
-                <p className="text-xs text-white/60">Share & discover music</p>
-              </div>
-            </div>
+    <div className="min-h-screen">
+      {/* Header - Floating Nav */}
+      <header className="sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="panel-surface px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              {/* Left: User Profile */}
+              <button
+                onClick={() => router.push('/profile')}
+                className="flex-shrink-0 hover:opacity-80 transition-opacity"
+              >
+                {userContext?.pfpUrl ? (
+                  <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#a8e6c5]">
+                    <Image
+                      src={userContext.pfpUrl}
+                      alt={userContext.username}
+                      width={36}
+                      height={36}
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] flex items-center justify-center">
+                    <User className="w-5 h-5 text-[#0b1a12]" />
+                  </div>
+                )}
+              </button>
 
-            <button
-              onClick={() => router.push('/feed')}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-colors"
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span className="text-sm font-medium">Discover</span>
-            </button>
+              {/* Center: Logo */}
+              <div className="flex-1 flex justify-center">
+                <Image
+                  src="/curio.png"
+                  alt="Curio"
+                  width={100}
+                  height={32}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+
+              {/* Right: Share Music Button */}
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] flex items-center justify-center shadow-lg transition-all hover:scale-105"
+              >
+                <Plus className="w-5 h-5 text-[#0b1a12]" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 py-12">
-        {/* Submit Form */}
-        <div className="mb-16">
-          <SubmitForm onSubmit={handleSubmit} />
-        </div>
+      {/* Share Music Modal */}
+      <ShareMusicModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        onSubmit={handleSubmit}
+      />
 
-        {/* Featured Tracks */}
-        {featuredTracks.length > 0 && (
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 pb-8">
+
+        {/* All Tracks with Infinite Scroll */}
+        {tracks.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-6">
-              <TrendingUp className="w-5 h-5 text-white/80" />
-              <h2 className="text-xl font-bold text-white">Top Tipped Tracks</h2>
+              <TrendingUp className="w-5 h-5 text-[--accent-glow]" />
+              <h2 className="text-2xl font-bold">Community Curated</h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredTracks.map((track) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {tracks.map((track) => (
                 <MusicCard
                   key={track.id}
                   track={track}
@@ -148,27 +248,35 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="text-center mt-8">
-              <button
-                onClick={() => router.push('/feed')}
-                className="px-6 py-3 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 text-white font-medium transition-colors"
-              >
-                View All Tracks
-              </button>
+            {/* Infinite scroll trigger */}
+            <div ref={observerTarget} className="h-20 flex items-center justify-center mt-8">
+              {loading && (
+                <div className="flex items-center gap-2 text-[#2d4a3a]">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading more tracks...</span>
+                </div>
+              )}
+              {!hasMore && tracks.length > 0 && (
+                <p className="text-[#2d4a3a] text-sm">
+                  You&apos;ve seen all the tracks! 🎵
+                </p>
+              )}
             </div>
           </div>
         )}
 
         {/* Empty State */}
-        {featuredTracks.length === 0 && (
-          <div className="text-center py-12">
-            <Music2 className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-white/60 mb-2">
-              No tracks yet
-            </h3>
-            <p className="text-sm text-white/40">
-              Be the first to share music on Music Curator!
-            </p>
+        {tracks.length === 0 && !loading && (
+          <div className="text-center py-16">
+            <div className="panel-surface max-w-md mx-auto p-12">
+              <Music2 className="w-16 h-16 text-[#2d4a3a] mx-auto mb-4 opacity-40" />
+              <h3 className="text-xl font-semibold text-[#0b1a12] mb-2">
+                Be the first curator
+              </h3>
+              <p className="text-sm text-[#2d4a3a]">
+                Share your favorite tracks and start the conversation 🎵
+              </p>
+            </div>
           </div>
         )}
       </main>

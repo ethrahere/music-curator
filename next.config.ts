@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: '**.spotifycdn.com',
+      },
+      {
+        protocol: 'https',
         hostname: '**.soundcloud.com',
       },
       {

@@ -6,18 +6,19 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const sort = searchParams.get('sort') || 'recent';
   const limit = parseInt(searchParams.get('limit') || '20');
+  const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
     let query = supabase.from('recommendations').select('*');
 
     // Apply sorting
     if (sort === 'most_tipped') {
-      query = query.order('tip_count', { ascending: false });
+      query = query.order('total_tips_usd', { ascending: false });
     } else {
       query = query.order('created_at', { ascending: false });
     }
 
-    const { data, error } = await query.limit(limit);
+    const { data, error } = await query.range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Supabase error:', error);
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       artist: rec.artist,
       artwork: rec.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
       embedUrl: rec.embed_url || '',
-      tips: rec.tip_count,
+      tips: rec.total_tips_usd || 0, // Show total USDC amount
       sharedBy: {
         fid: 0, // Will be populated from users table if needed
         username: rec.curator_address,
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
         genre: 'general', // Default genre
         moods: [],
         tip_count: 0,
+        total_tips_usd: 0,
         platform: track.platform,
         artwork_url: track.artwork,
         embed_url: track.embedUrl,
