@@ -11,7 +11,7 @@ export async function GET(
   try {
     const { data, error } = await supabase
       .from('recommendations')
-      .select('*')
+      .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)')
       .eq('id', id)
       .single();
 
@@ -30,8 +30,8 @@ export async function GET(
       embedUrl: data.embed_url || '',
       tips: data.total_tips_usd || 0,
       sharedBy: {
-        fid: 0,
-        username: data.curator_address,
+        fid: data.users?.farcaster_fid || 0,
+        username: data.users?.username || data.curator_address,
       },
       timestamp: new Date(data.created_at).getTime(),
     };
@@ -68,7 +68,7 @@ export async function POST(
         .from('recommendations')
         .update({ tip_count: currentData.tip_count + 1 })
         .eq('id', id)
-        .select()
+        .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)')
         .single();
 
       if (error || !data) {
@@ -86,8 +86,8 @@ export async function POST(
         embedUrl: data.embed_url || '',
         tips: data.total_tips_usd || 0,
         sharedBy: {
-          fid: 0,
-          username: data.curator_address,
+          fid: data.users?.farcaster_fid || 0,
+          username: data.users?.username || data.curator_address,
         },
         timestamp: new Date(data.created_at).getTime(),
       };

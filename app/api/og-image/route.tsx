@@ -9,12 +9,13 @@ export async function GET(request: NextRequest) {
     const imageUrl = searchParams.get('url');
     const title = searchParams.get('title') || 'Music Track';
     const artist = searchParams.get('artist') || 'Unknown Artist';
+    const platform = searchParams.get('platform') || 'music';
 
     if (!imageUrl) {
       return new Response('Missing image URL', { status: 400 });
     }
 
-    // Generate 3:2 aspect ratio image (1200x800)
+    // Generate 3:2 aspect ratio image (1200x800) - optimized for fast loading
     return new ImageResponse(
       (
         <div
@@ -22,61 +23,134 @@ export async function GET(request: NextRequest) {
             width: '100%',
             height: '100%',
             display: 'flex',
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%)',
-            position: 'relative',
+            justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, #07110b 0%, #0b1a12 100%)',
+            padding: '80px',
           }}
         >
-          {/* Album artwork centered */}
-          <img
-            src={imageUrl}
-            alt="Album artwork"
-            style={{
-              maxWidth: '80%',
-              maxHeight: '80%',
-              objectFit: 'contain',
-              borderRadius: '12px',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-            }}
-          />
-
-          {/* Overlay with track info at bottom */}
+          {/* Left: Album Artwork with glow */}
           <div
             style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: '32px',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)',
               display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '45%',
             }}
           >
             <div
               style={{
-                fontSize: 42,
+                borderRadius: '24px',
+                overflow: 'hidden',
+                boxShadow: '0 20px 60px rgba(127, 212, 168, 0.3)',
+                display: 'flex',
+              }}
+            >
+              <img
+                src={imageUrl}
+                width="500"
+                height="500"
+                style={{
+                  objectFit: 'cover',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Right: Track Info Card */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              width: '50%',
+              background: 'linear-gradient(135deg, #e8f5ed 0%, #d4ebe0 100%)',
+              borderRadius: '32px',
+              padding: '60px',
+              border: '4px solid #2d4a3a',
+            }}
+          >
+            {/* Platform badge */}
+            <div
+              style={{
+                display: 'flex',
+                marginBottom: '24px',
+              }}
+            >
+              <div
+                style={{
+                  background: 'rgba(143, 216, 167, 0.2)',
+                  border: '2px solid rgba(143, 216, 167, 0.4)',
+                  borderRadius: '999px',
+                  padding: '12px 24px',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  color: '#2d4a3a',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                }}
+              >
+                {platform}
+              </div>
+            </div>
+
+            {/* Title */}
+            <div
+              style={{
+                fontSize: 56,
                 fontWeight: 'bold',
-                color: 'white',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                color: '#0b1a12',
+                marginBottom: '16px',
+                lineHeight: '1.2',
+                display: '-webkit-box',
                 overflow: 'hidden',
               }}
             >
               {title}
             </div>
+
+            {/* Artist */}
             <div
               style={{
-                fontSize: 32,
-                color: 'rgba(255,255,255,0.8)',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
+                fontSize: 36,
+                color: '#2d4a3a',
+                marginBottom: '32px',
               }}
             >
               {artist}
+            </div>
+
+            {/* Curio branding */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <div
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #a8e6c5 0%, #7fd4a8 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '32px',
+                }}
+              >
+                🎵
+              </div>
+              <div
+                style={{
+                  fontSize: '28px',
+                  fontWeight: '600',
+                  color: '#0b1a12',
+                }}
+              >
+                Curated on Curio
+              </div>
             </div>
           </div>
         </div>

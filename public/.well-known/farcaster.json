@@ -9,7 +9,7 @@
     "name": "Music Curator",
     "iconUrl": "https://music-curator.vercel.app/curio-logo.png",
     "homeUrl": "https://music-curator.vercel.app/",
-    "splashImageUrl": "https://music-curator.vercel.app/curio.png",
+    "splashImageUrl": "https://music-curator.vercel.app/image-url.png",
     "splashBackgroundColor": "#1a1a1a",
     "primaryCategory": "music",
     "tags": ["music", "curation", "discovery", "streaming", "social"]

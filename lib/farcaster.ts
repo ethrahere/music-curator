@@ -83,13 +83,13 @@ export async function sendTip(curatorFid: number, tipAmount: number) {
     const result = await sdk.actions.sendToken({
       token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base USDC
       amount: (tipAmount * 1000000).toString(), // Convert to USDC decimals (6)
-      recipientFid: curatorFid,
+      recipientFid: curatorFid, // Pre-fill recipient by Farcaster ID
     });
 
     if (result.success) {
       return {
         success: true,
-        transaction: result.send.transaction,
+        transaction: result.send?.transaction,
       };
     } else {
       return {
@@ -126,7 +126,7 @@ export async function notifyCurator(
         notificationId: `tip-${Date.now()}`,
         title: 'You received a tip! 💰',
         body: `@${tipperUsername} tipped you $${amount} for "${trackTitle}"`,
-        targetUrl: `https://yourapp.com/track/${trackId}`,
+        targetUrl: `https://music-curator.vercel.app/track/${trackId}`,
         tokens: [curatorNotificationToken],
       }),
     });

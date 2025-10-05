@@ -9,7 +9,9 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get('offset') || '0');
 
   try {
-    let query = supabase.from('recommendations').select('*');
+    let query = supabase
+      .from('recommendations')
+      .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)');
 
     // Apply sorting
     if (sort === 'most_tipped') {
@@ -36,8 +38,8 @@ export async function GET(request: NextRequest) {
       embedUrl: rec.embed_url || '',
       tips: rec.total_tips_usd || 0, // Show total USDC amount
       sharedBy: {
-        fid: 0, // Will be populated from users table if needed
-        username: rec.curator_address,
+        fid: rec.users?.farcaster_fid || 0,
+        username: rec.users?.username || rec.curator_address,
       },
       timestamp: new Date(rec.created_at).getTime(),
     }));
