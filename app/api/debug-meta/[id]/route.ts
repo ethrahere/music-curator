@@ -29,7 +29,7 @@ export async function GET(
         type: 'launch',
         name: 'Music Player',
         url: `${baseUrl}/play?trackId=${data.id}`,
-        splashImageUrl: `${baseUrl}/curio.png`,
+        splashImageUrl: `${baseUrl}/curio-logo.png`,
         splashBackgroundColor: '#1a1a1a',
       },
     },

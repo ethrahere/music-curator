@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
     if (error || !data) {
       return {
         title: 'Track Not Found',
-        description: 'Music track not found on Music Curator',
+        description: 'Music track not found on Curio',
       };
     }
 
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
           type: 'launch_frame',
           name: 'Music Player',
           url: `${baseUrl}/play?trackId=${data.id}`,
-          splashImageUrl: `${baseUrl}/curio.png`,
+          splashImageUrl: `${baseUrl}/curio-logo.png`,
           splashBackgroundColor: '#1a1a1a',
         },
       },
@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
 
     return {
       title: `${data.song_title} - ${data.artist}`,
-      description: `Listen to ${data.song_title} by ${data.artist} on Music Curator`,
+      description: `Listen to ${data.song_title} by ${data.artist} on Curio`,
       openGraph: {
         title: data.song_title,
         description: `by ${data.artist}`,
@@ -79,7 +79,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
     console.error('Error generating metadata:', error);
     return {
       title: 'Track Not Found',
-      description: 'Music track not found on Music Curator',
+      description: 'Music track not found on Curio',
     };
   }
 }

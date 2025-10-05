@@ -70,7 +70,7 @@ export function generateEmbedMetadata(
         type: 'launch',
         name: 'Music Player',
         url: `${baseUrl}/play?trackId=${trackId}`,
-        splashImageUrl: `${baseUrl}/curio.png`,
+        splashImageUrl: `${baseUrl}/curio-logo.png`,
         splashBackgroundColor: '#1a1a1a',
       },
     },

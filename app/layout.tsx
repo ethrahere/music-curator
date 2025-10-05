@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   title: "Curio - Share & Discover Music on Farcaster",
   description: "A music discovery app for Farcaster. Share tracks from YouTube, Spotify, SoundCloud, and more.",
   openGraph: {
-    title: "Curio - Music Discovery on Farcaster",
+    title: "Curio - Music Discovery on Farcaster/Base",
     description: "Share tracks from YouTube, Spotify, SoundCloud, and more.",
     images: [
       {
