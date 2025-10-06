@@ -11,7 +11,7 @@
     "homeUrl": "https://music-curator.vercel.app/",
     "splashImageUrl": "https://music-curator.vercel.app/image-url.png",
     "imageUrl": "https://music-curator.vercel.app/image-url.png",
-    "splashBackgroundColor": "#b4e7c1",
+    "splashBackgroundColor": "#07110b",
     "primaryCategory": "music",
     "tags": ["music", "curation", "discovery", "streaming", "social"],
     "heroImageUrl": "https://music-curator.vercel.app/curio.png",
