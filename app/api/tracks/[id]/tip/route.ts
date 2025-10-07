@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Use service role key for write operations, but validate inputs first
 const getSupabase = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -9,7 +10,12 @@ const getSupabase = () => {
     throw new Error('Missing Supabase environment variables');
   }
 
-  return createClient(url, key);
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  });
 };
 
 export async function POST(
@@ -23,29 +29,60 @@ export async function POST(
 
     console.log('Tip request received:', { id, txHash, fromFid, toFid, requestedAmount, tipperUsername });
 
-    if (!requestedAmount || !fromFid || !tipperUsername) {
-      console.error('Missing required fields:', { requestedAmount, fromFid, tipperUsername });
+    // Validate required fields
+    if (!requestedAmount || !fromFid || !tipperUsername || !txHash) {
+      console.error('Missing required fields:', { requestedAmount, fromFid, tipperUsername, txHash });
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
+    // Validate data types and ranges
+    if (typeof fromFid !== 'number' || fromFid <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid fromFid' },
+        { status: 400 }
+      );
+    }
+
+    if (typeof requestedAmount !== 'number' || requestedAmount <= 0 || requestedAmount > 10000) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid tip amount (must be between 0 and 10000)' },
+        { status: 400 }
+      );
+    }
+
+    if (typeof txHash !== 'string' || !txHash.startsWith('0x')) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid transaction hash' },
+        { status: 400 }
+      );
+    }
+
     const supabase = getSupabase();
 
-    // Get track details with curator info
+    // Get track details first
     const { data: track, error: trackError } = await supabase
       .from('recommendations')
-      .select('*, users!recommendations_curator_address_fkey(address, username, farcaster_fid, notification_token)')
+      .select('*')
       .eq('id', id)
       .single();
 
     if (trackError || !track) {
+      console.error('Track lookup failed:', trackError);
       return NextResponse.json(
-        { success: false, error: 'Track not found' },
+        { success: false, error: 'Track not found', details: trackError?.message },
         { status: 404 }
       );
     }
+
+    // Get curator info separately
+    const { data: curator } = await supabase
+      .from('users')
+      .select('address, username, farcaster_fid, notification_token')
+      .eq('address', track.curator_address)
+      .single();
 
     // Ensure tipper exists in users table
     const tipperAddress = `fid:${fromFid}`;
@@ -56,11 +93,15 @@ export async function POST(
       .single();
 
     if (!existingTipper) {
-      await supabase.from('users').insert({
+      const { error: insertUserError } = await supabase.from('users').insert({
         address: tipperAddress,
         username: tipperUsername,
         farcaster_fid: fromFid,
       });
+
+      if (insertUserError) {
+        console.error('Failed to insert tipper user:', insertUserError);
+      }
     }
 
     // Record tip transaction using address-based schema
@@ -80,7 +121,7 @@ export async function POST(
     if (tipError) {
       console.error('Failed to record tip:', tipError);
       return NextResponse.json(
-        { success: false, error: 'Failed to record tip' },
+        { success: false, error: 'Failed to record tip', details: tipError.message, code: tipError.code },
         { status: 500 }
       );
     }
@@ -104,7 +145,7 @@ export async function POST(
     }
 
     // Send notification to curator
-    if (track.users?.notification_token) {
+    if (curator?.notification_token) {
       try {
         const notificationUrl = process.env.FARCASTER_NOTIFICATION_URL;
         if (notificationUrl) {
@@ -112,14 +153,14 @@ export async function POST(
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${track.users.notification_token}`,
+              'Authorization': `Bearer ${curator.notification_token}`,
             },
             body: JSON.stringify({
               notificationId: `tip-${Date.now()}`,
               title: 'You received a tip! 💰',
               body: `@${tipperUsername} tipped you $${requestedAmount} for "${track.song_title}"`,
-              targetUrl: `${process.env.NEXT_PUBLIC_APP_URL}/track/${id}`,
-              tokens: [track.users.notification_token],
+              targetUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/track/${id}`,
+              tokens: [curator.notification_token],
             }),
           });
         }
@@ -137,7 +178,7 @@ export async function POST(
   } catch (error) {
     console.error('Tip error:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

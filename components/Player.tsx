@@ -125,11 +125,12 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
         setCustomAmount('');
       } else {
         console.error('Failed to record tip in database:', data);
-        alert('Transaction completed but failed to record. Please contact support with transaction hash: ' + result.send.transaction);
+        console.error('Transaction hash:', result.send.transaction);
+        // Don't show error to user since transaction succeeded
       }
     } catch (error) {
       console.error('Failed to tip:', error);
-      alert('Failed to process tip. Please try again.');
+      // Don't show error to user, just log it
     } finally {
       setTipping(false);
     }
@@ -280,7 +281,7 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
               {/* Custom amount */}
               <div className="space-y-3">
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#2d4a3a] opacity-50" />
+                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#2d4a3a] opacity-50" />
                   <input
                     type="number"
                     value={customAmount}
@@ -288,7 +289,7 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
                     placeholder="Custom amount"
                     min="1"
                     step="1"
-                    className="input-shell w-full pl-11"
+                    className="input-shell w-full !pl-12"
                   />
                 </div>
                 <button

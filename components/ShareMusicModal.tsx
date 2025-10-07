@@ -117,14 +117,14 @@ export default function ShareMusicModal({ isOpen, onClose, onSubmit }: ShareMusi
           {/* URL Input */}
           <div className="space-y-4">
             <div className="relative">
-              <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#2d4a3a] opacity-50" />
+              <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#2d4a3a] opacity-50" />
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handlePreview()}
                 placeholder="Paste link from YouTube, Spotify, SoundCloud..."
-                className="input-shell w-full pl-11"
+                className="input-shell w-full !pl-12"
               />
             </div>
 
