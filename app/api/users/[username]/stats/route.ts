@@ -21,14 +21,14 @@ export async function GET(
     const supabase = getSupabase();
 
     // Get user info - try by username first, then by address (since they might be the same)
-    let { data: user, error: userError } = await supabase
+    let { data: user } = await supabase
       .from('users')
       .select('address, bio')
       .eq('username', username)
       .single();
 
     // If not found by username, try by address
-    if (userError || !user) {
+    if (!user) {
       const { data: userByAddress } = await supabase
         .from('users')
         .select('address, bio')

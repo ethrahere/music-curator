@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
             >
               <img
                 src={imageUrl}
+                alt=""
                 width="500"
                 height="500"
                 style={{

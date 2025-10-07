@@ -7,7 +7,7 @@ import MusicCard from '@/components/MusicCard';
 import Player from '@/components/Player';
 import { MusicTrack, MusicMetadata } from '@/types/music';
 import { initializeFarcaster, getUserContext, shareToFarcaster } from '@/lib/farcaster';
-import { Music2, TrendingUp, Loader2, Plus, User } from 'lucide-react';
+import { Music2, Loader2, Plus, User } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Home() {
@@ -48,7 +48,8 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Initialize Farcaster SDK and get user context
@@ -274,7 +275,7 @@ export default function Home() {
           <div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {tracks.map((track, index) => (
+              {tracks.map((track) => (
                 <MusicCard
                   key={track.id}
                   track={track}

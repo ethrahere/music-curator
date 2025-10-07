@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
             {pfpUrl ? (
               <img
                 src={pfpUrl}
+                alt=""
                 width="120"
                 height="120"
                 style={{
