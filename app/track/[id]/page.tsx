@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
           type: 'launch_frame',
           name: 'Music Player',
           url: `${baseUrl}/play?trackId=${data.id}`,
-          splashImageUrl: `${baseUrl}/curio-logo.png`,
+          splashImageUrl: `${baseUrl}/curio.png`,
           splashBackgroundColor: '#1a1a1a',
         },
       },
@@ -73,6 +73,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
       },
       other: {
         'fc:miniapp': JSON.stringify(miniAppMetadata),
+        'fc:frame': JSON.stringify(miniAppMetadata),
       },
     };
   } catch (error) {

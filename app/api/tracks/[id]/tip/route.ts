@@ -19,12 +19,12 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await request.json();
-    const { amount, tipperFid, tipperUsername, transaction } = body;
+    const { txHash, fromFid, toFid, requestedAmount, tipperUsername } = body;
 
-    console.log('Tip request received:', { id, amount, tipperFid, tipperUsername, transaction });
+    console.log('Tip request received:', { id, txHash, fromFid, toFid, requestedAmount, tipperUsername });
 
-    if (!amount || !tipperFid || !tipperUsername) {
-      console.error('Missing required fields:', { amount, tipperFid, tipperUsername });
+    if (!requestedAmount || !fromFid || !tipperUsername) {
+      console.error('Missing required fields:', { requestedAmount, fromFid, tipperUsername });
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
@@ -48,7 +48,7 @@ export async function POST(
     }
 
     // Ensure tipper exists in users table
-    const tipperAddress = `fid:${tipperFid}`;
+    const tipperAddress = `fid:${fromFid}`;
     const { data: existingTipper } = await supabase
       .from('users')
       .select('address')
@@ -59,7 +59,7 @@ export async function POST(
       await supabase.from('users').insert({
         address: tipperAddress,
         username: tipperUsername,
-        farcaster_fid: tipperFid,
+        farcaster_fid: fromFid,
       });
     }
 
@@ -69,8 +69,8 @@ export async function POST(
       tipper_address: tipperAddress,
       curator_address: track.curator_address,
       amount: 0, // Legacy integer field
-      amount_usd: amount,
-      transaction_hash: transaction?.hash,
+      amount_usd: requestedAmount,
+      transaction_hash: txHash,
     };
 
     console.log('Inserting tip:', tipInsertData);
@@ -89,7 +89,7 @@ export async function POST(
 
     // Update tip count and total on recommendation
     const newTipCount = (track.tip_count || 0) + 1;
-    const newTotalTips = (track.total_tips_usd || 0) + amount;
+    const newTotalTips = (track.total_tips_usd || 0) + requestedAmount;
 
     const { error: updateError } = await supabase
       .from('recommendations')
@@ -117,7 +117,7 @@ export async function POST(
             body: JSON.stringify({
               notificationId: `tip-${Date.now()}`,
               title: 'You received a tip! 💰',
-              body: `@${tipperUsername} tipped you $${amount} for "${track.song_title}"`,
+              body: `@${tipperUsername} tipped you $${requestedAmount} for "${track.song_title}"`,
               targetUrl: `${process.env.NEXT_PUBLIC_APP_URL}/track/${id}`,
               tokens: [track.users.notification_token],
             }),

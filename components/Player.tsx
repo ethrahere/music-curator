@@ -3,7 +3,8 @@
 import { MusicTrack } from '@/types/music';
 import { Share2, X, DollarSign, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
-import { shareToFarcaster, sendTip, getUserContext } from '@/lib/farcaster';
+import { shareToFarcaster, getUserContext } from '@/lib/farcaster';
+import sdk from '@farcaster/frame-sdk';
 import { useState } from 'react';
 
 interface PlayerProps {
@@ -71,43 +72,64 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
     try {
       // Get tipper context
       const tipper = await getUserContext();
+      const curatorFid = track.sharedBy.fid;
 
-      // Send USDC tip via Farcaster SDK
-      const result = await sendTip(track.sharedBy.fid, amount);
+      // Send USDC tip directly via Farcaster SDK
+      const result = await sdk.actions.sendToken({
+        token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+        amount: (amount * 1000000).toString(),
+        recipientFid: curatorFid,
+      });
 
-      if (result.success) {
-        // Record tip in database
-        const response = await fetch(`/api/tracks/${track.id}/tip`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount,
-            tipperFid: tipper.fid,
-            tipperUsername: tipper.username,
-            transaction: result.transaction,
-          }),
-        });
+      console.log('Tip SDK result:', result);
 
-        if (response.ok) {
-          // Show success animation and share option
-          setTipSuccess(true);
-          setLastTipAmount(amount);
-          setShowShareTip(true);
+      // Only proceed if the transaction was successful
+      if (!result.success) {
+        console.log('Tip cancelled or failed:', result.reason);
+        // User cancelled or transaction failed - don't show error, just reset
+        setTipping(false);
+        return;
+      }
 
-          setTimeout(() => {
-            setTipSuccess(false);
-          }, 3000);
+      // Transaction succeeded - record in database
+      const response = await fetch(`/api/tracks/${track.id}/tip`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          txHash: result.send.transaction,
+          fromFid: tipper.fid,
+          toFid: curatorFid,
+          requestedAmount: amount,
+          timestamp: Date.now(),
+          tipperUsername: tipper.username,
+        }),
+      });
 
-          // Update local state
-          onTip(track.id);
+      const data = await response.json();
 
-          // Hide tip amounts
-          setShowTipAmounts(false);
-          setCustomAmount('');
-        }
+      if (response.ok && data.success) {
+        // Show success animation and share option
+        setTipSuccess(true);
+        setLastTipAmount(amount);
+        setShowShareTip(true);
+
+        setTimeout(() => {
+          setTipSuccess(false);
+        }, 3000);
+
+        // Update local state
+        onTip(track.id);
+
+        // Hide tip amounts
+        setShowTipAmounts(false);
+        setCustomAmount('');
+      } else {
+        console.error('Failed to record tip in database:', data);
+        alert('Transaction completed but failed to record. Please contact support with transaction hash: ' + result.send.transaction);
       }
     } catch (error) {
       console.error('Failed to tip:', error);
+      alert('Failed to process tip. Please try again.');
     } finally {
       setTipping(false);
     }
