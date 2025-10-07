@@ -23,27 +23,14 @@ export async function GET(
 
     console.log('Fetching tracks for username:', username);
 
-    // Get user address - try by username first, then by address
-    const { data: userData, error: userError } = await supabase
+    // Get user by username
+    const { data: user, error: userError } = await supabase
       .from('users')
-      .select('address, farcaster_fid, username')
+      .select('farcaster_fid, username')
       .eq('username', username)
       .single();
 
-    let user = userData;
     console.log('User lookup result:', { user, userError });
-
-    // If not found by username, try by address
-    if (!user) {
-      const { data: userByAddress, error: addressError } = await supabase
-        .from('users')
-        .select('address, farcaster_fid, username')
-        .eq('address', username)
-        .single();
-
-      console.log('User by address lookup:', { userByAddress, addressError });
-      user = userByAddress;
-    }
 
     if (!user) {
       console.log('User not found in database');
@@ -52,11 +39,11 @@ export async function GET(
 
     console.log('Found user:', user);
 
-    // Get user's tracks
+    // Get user's tracks using FID
     const { data, error } = await supabase
       .from('recommendations')
       .select('*')
-      .eq('curator_address', user.address)
+      .eq('curator_fid', user.farcaster_fid)
       .order('created_at', { ascending: false });
 
     console.log('Tracks query result:', { count: data?.length, error });

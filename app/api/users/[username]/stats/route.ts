@@ -20,23 +20,12 @@ export async function GET(
     const { username } = await params;
     const supabase = getSupabase();
 
-    // Get user info - try by username first, then by address (since they might be the same)
-    let { data: user } = await supabase
+    // Get user info by username
+    const { data: user } = await supabase
       .from('users')
-      .select('address, bio')
+      .select('farcaster_fid, bio')
       .eq('username', username)
       .single();
-
-    // If not found by username, try by address
-    if (!user) {
-      const { data: userByAddress } = await supabase
-        .from('users')
-        .select('address, bio')
-        .eq('address', username)
-        .single();
-
-      user = userByAddress;
-    }
 
     if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
@@ -46,13 +35,13 @@ export async function GET(
     const { count: tracksShared } = await supabase
       .from('recommendations')
       .select('id', { count: 'exact', head: true })
-      .eq('curator_address', user.address);
+      .eq('curator_fid', user.farcaster_fid);
 
     // Get total tips earned
     const { data: tipsData } = await supabase
       .from('recommendations')
       .select('total_tips_usd')
-      .eq('curator_address', user.address);
+      .eq('curator_fid', user.farcaster_fid);
 
     const tipsEarned = tipsData?.reduce((sum, rec) => sum + (rec.total_tips_usd || 0), 0) || 0;
 
@@ -60,7 +49,7 @@ export async function GET(
     const { count: successfulTracks } = await supabase
       .from('recommendations')
       .select('id', { count: 'exact', head: true })
-      .eq('curator_address', user.address)
+      .eq('curator_fid', user.farcaster_fid)
       .gte('total_tips_usd', 5);
 
     const successRate = tracksShared ? Math.round(((successfulTracks || 0) / tracksShared) * 100) : 0;

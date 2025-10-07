@@ -62,10 +62,10 @@ export async function POST(
 
     const supabase = getSupabase();
 
-    // Get track details first
+    // Get track details with curator info using new FID-based schema
     const { data: track, error: trackError } = await supabase
       .from('recommendations')
-      .select('*')
+      .select('*, curator:users!curator_fid(farcaster_fid, username, notification_token)')
       .eq('id', id)
       .single();
 
@@ -77,38 +77,38 @@ export async function POST(
       );
     }
 
-    // Get curator info separately
-    const { data: curator } = await supabase
-      .from('users')
-      .select('address, username, farcaster_fid, notification_token')
-      .eq('address', track.curator_address)
-      .single();
-
-    // Ensure tipper exists in users table
-    const tipperAddress = `fid:${fromFid}`;
-    const { data: existingTipper } = await supabase
-      .from('users')
-      .select('address')
-      .eq('address', tipperAddress)
-      .single();
-
-    if (!existingTipper) {
-      const { error: insertUserError } = await supabase.from('users').insert({
-        address: tipperAddress,
-        username: tipperUsername,
-        farcaster_fid: fromFid,
-      });
-
-      if (insertUserError) {
-        console.error('Failed to insert tipper user:', insertUserError);
-      }
+    // Get curator from the join (much simpler now!)
+    const curator = track.curator;
+    if (!curator) {
+      console.error('Curator not found for track:', id);
+      return NextResponse.json(
+        { success: false, error: 'Curator not found' },
+        { status: 404 }
+      );
     }
 
-    // Record tip transaction using address-based schema
+    console.log('Found curator:', curator);
+
+    // Ensure tipper exists in users table (upsert)
+    const { error: upsertError } = await supabase
+      .from('users')
+      .upsert({
+        farcaster_fid: fromFid,
+        username: tipperUsername,
+      }, {
+        onConflict: 'farcaster_fid',
+        ignoreDuplicates: false
+      });
+
+    if (upsertError) {
+      console.error('Failed to upsert tipper user:', upsertError);
+    }
+
+    // Record tip using new FID-based schema
     const tipInsertData = {
       recommendation_id: id,
-      tipper_address: tipperAddress,
-      curator_address: track.curator_address,
+      tipper_fid: fromFid,
+      curator_fid: toFid,
       amount: 0, // Legacy integer field
       amount_usd: requestedAmount,
       transaction_hash: txHash,

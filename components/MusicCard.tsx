@@ -3,6 +3,7 @@
 import { MusicTrack } from '@/types/music';
 import { Play, Heart } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface MusicCardProps {
   track: MusicTrack;
@@ -42,9 +43,13 @@ export default function MusicCard({ track, onPlay, onTip }: MusicCardProps) {
             <span className="pill-tag text-[0.65rem]">
               {track.platform}
             </span>
-            <span className="text-xs text-[#2d4a3a]">
-              {track.sharedBy.username}
-            </span>
+            <Link
+              href={`/curator/${track.sharedBy.username}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-[#2d4a3a] hover:text-[#0b1a12] hover:underline transition-colors"
+            >
+              @{track.sharedBy.username}
+            </Link>
           </div>
 
           {onTip && (

@@ -21,17 +21,28 @@ export async function POST(
     const { bio } = await request.json();
     const supabase = getSupabase();
 
-    // Update user bio
-    const { error } = await supabase
+    console.log('Updating bio for username:', username, 'New bio:', bio);
+
+    // Update user bio by username
+    const { data, error } = await supabase
       .from('users')
       .update({ bio })
-      .eq('username', username);
+      .eq('username', username)
+      .select();
+
+    console.log('Update result:', { data, error });
 
     if (error) {
       console.error('Failed to update bio:', error);
-      return NextResponse.json({ success: false, error: 'Failed to update bio' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'Failed to update bio', details: error.message }, { status: 500 });
     }
 
+    if (!data || data.length === 0) {
+      console.error('User not found:', username);
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    console.log('Bio updated successfully');
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating bio:', error);

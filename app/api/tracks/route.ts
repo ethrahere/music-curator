@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     let query = supabase
       .from('recommendations')
-      .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)');
+      .select('*, curator:users!curator_fid(farcaster_fid, username)');
 
     // Apply genre filter if provided
     if (genre) {
@@ -42,10 +42,10 @@ export async function GET(request: NextRequest) {
       artist: rec.artist,
       artwork: rec.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
       embedUrl: rec.embed_url || '',
-      tips: rec.total_tips_usd || 0, // Show total USDC amount
+      tips: rec.total_tips_usd || 0,
       sharedBy: {
-        fid: rec.users?.farcaster_fid || 0,
-        username: rec.users?.username || rec.curator_address,
+        fid: rec.curator?.farcaster_fid || 0,
+        username: rec.curator?.username || 'unknown',
       },
       timestamp: new Date(rec.created_at).getTime(),
     }));
@@ -61,35 +61,30 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const track: MusicTrack = body;
-    const curatorAddress = track.sharedBy.username || 'anonymous';
+    const curatorFid = track.sharedBy.fid;
+    const curatorUsername = track.sharedBy.username || 'anonymous';
 
     console.log('Received track data:', {
       review: body.review,
       genre: body.genre,
       moods: body.moods,
+      curatorFid,
     });
 
-    // First, ensure user exists in users table
-    const { data: existingUser } = await supabase
+    // Ensure user exists in users table (upsert)
+    await supabase
       .from('users')
-      .select('address')
-      .eq('address', curatorAddress)
-      .single();
+      .upsert({
+        farcaster_fid: curatorFid,
+        username: curatorUsername,
+      }, {
+        onConflict: 'farcaster_fid',
+        ignoreDuplicates: false
+      });
 
-    if (!existingUser) {
-      // Create user if doesn't exist
-      await supabase
-        .from('users')
-        .insert({
-          address: curatorAddress,
-          username: curatorAddress,
-          farcaster_fid: track.sharedBy.fid,
-        });
-    }
-
-    // Prepare data for insertion
+    // Prepare data for insertion with FID
     const insertData = {
-      curator_address: curatorAddress,
+      curator_fid: curatorFid,
       music_url: track.url,
       song_title: track.title,
       artist: track.artist,

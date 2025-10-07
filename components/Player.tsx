@@ -1,8 +1,9 @@
 'use client';
 
 import { MusicTrack } from '@/types/music';
-import { Share2, X, DollarSign, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Share2, X, DollarSign, ExternalLink, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { shareToFarcaster, getUserContext } from '@/lib/farcaster';
 import sdk from '@farcaster/frame-sdk';
 import { useState } from 'react';
@@ -108,14 +109,10 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Show success animation and share option
+        // Show success state and share option (permanent until dismissed)
         setTipSuccess(true);
         setLastTipAmount(amount);
         setShowShareTip(true);
-
-        setTimeout(() => {
-          setTipSuccess(false);
-        }, 3000);
 
         // Update local state
         onTip(track.id);
@@ -193,7 +190,13 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
           <div className="flex items-center justify-center gap-3">
             <span className="pill-tag">{track.platform}</span>
             <span className="text-sm text-white/60">
-              by {track.sharedBy.username}
+              by{' '}
+              <Link
+                href={`/curator/${track.sharedBy.username}`}
+                className="hover:text-white hover:underline transition-colors"
+              >
+                @{track.sharedBy.username}
+              </Link>
             </span>
           </div>
         </div>
@@ -239,21 +242,53 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
 
         {/* Actions */}
         <div className="flex flex-col items-center gap-4 w-full max-w-md">
-          {/* Success Animation */}
-          {tipSuccess && (
-            <div className="text-center">
-              <div className="animate-bounce text-white text-lg font-bold mb-3">
-                🎉 Tip sent successfully! 💰
+          {/* Success Message with Share Tip */}
+          {tipSuccess && showShareTip && (
+            <div className="panel-surface p-6 w-full relative">
+              {/* Close button */}
+              <button
+                onClick={() => {
+                  setTipSuccess(false);
+                  setShowShareTip(false);
+                }}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all"
+              >
+                <X className="w-4 h-4 text-[#0b1a12]" />
+              </button>
+
+              <div className="text-center mb-4">
+                <div className="text-2xl mb-2">🎉</div>
+                <h3 className="text-lg font-bold text-[#0b1a12] mb-1">
+                  Tip Sent Successfully!
+                </h3>
+                <p className="text-sm text-[#2d4a3a]">
+                  You tipped ${lastTipAmount} USDC to @{track.sharedBy.username}
+                </p>
               </div>
-              {showShareTip && (
-                <button
-                  onClick={handleShareTip}
-                  disabled={sharing}
-                  className="panel-surface px-6 py-3 text-sm font-semibold text-[#0b1a12] hover:scale-105 transition-all disabled:opacity-50"
-                >
-                  {sharing ? 'Sharing...' : '📢 Share tip on Farcaster'}
-                </button>
-              )}
+
+              <div className="bg-white/40 rounded-xl p-4 mb-4">
+                <p className="text-sm text-[#0b1a12] font-medium text-center">
+                  💡 Share your tip to earn XP and level up your curator profile!
+                </p>
+              </div>
+
+              <button
+                onClick={handleShareTip}
+                disabled={sharing}
+                className="w-full py-3 bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] font-bold rounded-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {sharing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Sharing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-5 h-5" />
+                    <span>Share Tip on Farcaster</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
 
