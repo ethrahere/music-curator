@@ -21,27 +21,36 @@ export async function GET(
     const { username } = await params;
     const supabase = getSupabase();
 
+    console.log('Fetching tracks for username:', username);
+
     // Get user address - try by username first, then by address
-    let { data: user } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('address, farcaster_fid')
+      .select('address, farcaster_fid, username')
       .eq('username', username)
       .single();
 
+    let user = userData;
+    console.log('User lookup result:', { user, userError });
+
     // If not found by username, try by address
     if (!user) {
-      const { data: userByAddress } = await supabase
+      const { data: userByAddress, error: addressError } = await supabase
         .from('users')
-        .select('address, farcaster_fid')
+        .select('address, farcaster_fid, username')
         .eq('address', username)
         .single();
 
+      console.log('User by address lookup:', { userByAddress, addressError });
       user = userByAddress;
     }
 
     if (!user) {
+      console.log('User not found in database');
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
+
+    console.log('Found user:', user);
 
     // Get user's tracks
     const { data, error } = await supabase
@@ -50,9 +59,11 @@ export async function GET(
       .eq('curator_address', user.address)
       .order('created_at', { ascending: false });
 
+    console.log('Tracks query result:', { count: data?.length, error });
+
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json({ success: false, tracks: [] });
+      console.error('Supabase error fetching tracks:', error);
+      return NextResponse.json({ success: false, tracks: [], error: error.message });
     }
 
     // Transform to MusicTrack format
