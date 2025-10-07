@@ -20,14 +20,25 @@ export async function GET(
     const { username } = await params;
     const supabase = getSupabase();
 
-    // Get user info
-    const { data: user, error: userError } = await supabase
+    // Get user info - try by username first, then by address (since they might be the same)
+    let { data: user, error: userError } = await supabase
       .from('users')
       .select('address, bio')
       .eq('username', username)
       .single();
 
+    // If not found by username, try by address
     if (userError || !user) {
+      const { data: userByAddress } = await supabase
+        .from('users')
+        .select('address, bio')
+        .eq('address', username)
+        .single();
+
+      user = userByAddress;
+    }
+
+    if (!user) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 

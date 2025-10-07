@@ -7,11 +7,17 @@ export async function GET(request: NextRequest) {
   const sort = searchParams.get('sort') || 'recent';
   const limit = parseInt(searchParams.get('limit') || '20');
   const offset = parseInt(searchParams.get('offset') || '0');
+  const genre = searchParams.get('genre');
 
   try {
     let query = supabase
       .from('recommendations')
       .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)');
+
+    // Apply genre filter if provided
+    if (genre) {
+      query = query.eq('genre', genre);
+    }
 
     // Apply sorting
     if (sort === 'most_tipped') {
@@ -53,8 +59,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const track: MusicTrack = await request.json();
+    const body = await request.json();
+    const track: MusicTrack = body;
     const curatorAddress = track.sharedBy.username || 'anonymous';
+
+    console.log('Received track data:', {
+      review: body.review,
+      genre: body.genre,
+      moods: body.moods,
+    });
 
     // First, ensure user exists in users table
     const { data: existingUser } = await supabase
@@ -74,23 +87,28 @@ export async function POST(request: NextRequest) {
         });
     }
 
+    // Prepare data for insertion
+    const insertData = {
+      curator_address: curatorAddress,
+      music_url: track.url,
+      song_title: track.title,
+      artist: track.artist,
+      review: body.review || '',
+      genre: body.genre || 'general',
+      moods: body.moods || [],
+      tip_count: 0,
+      total_tips_usd: 0,
+      platform: track.platform,
+      artwork_url: track.artwork,
+      embed_url: track.embedUrl,
+    };
+
+    console.log('Inserting into DB:', insertData);
+
     // Insert into Supabase
     const { data, error } = await supabase
       .from('recommendations')
-      .insert({
-        curator_address: curatorAddress,
-        music_url: track.url,
-        song_title: track.title,
-        artist: track.artist,
-        review: '', // Empty for now, can be added later
-        genre: 'general', // Default genre
-        moods: [],
-        tip_count: 0,
-        total_tips_usd: 0,
-        platform: track.platform,
-        artwork_url: track.artwork,
-        embed_url: track.embedUrl,
-      })
+      .insert(insertData)
       .select()
       .single();
 

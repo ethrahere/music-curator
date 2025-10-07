@@ -1,7 +1,7 @@
 'use client';
 
 import { MusicTrack } from '@/types/music';
-import { Share2, X, DollarSign, ExternalLink } from 'lucide-react';
+import { Share2, X, DollarSign, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { shareToFarcaster, sendTip, getUserContext } from '@/lib/farcaster';
 import { useState } from 'react';
@@ -11,9 +11,12 @@ interface PlayerProps {
   onClose: () => void;
   onTip: (trackId: string) => void;
   baseUrl: string;
+  playlist?: MusicTrack[];
+  currentIndex?: number;
+  onPlayNext?: (nextTrack: MusicTrack) => void;
 }
 
-export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) {
+export default function Player({ track, onClose, onTip, baseUrl, playlist, currentIndex, onPlayNext }: PlayerProps) {
   const [sharing, setSharing] = useState(false);
   const [tipping, setTipping] = useState(false);
   const [showTipAmounts, setShowTipAmounts] = useState(false);
@@ -21,6 +24,24 @@ export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) 
   const [tipSuccess, setTipSuccess] = useState(false);
 
   const tipAmounts = [1, 5, 10];
+
+  // Check if there's a next track
+  const hasNextTrack = playlist && currentIndex !== undefined && currentIndex < playlist.length - 1;
+  const hasPrevTrack = playlist && currentIndex !== undefined && currentIndex > 0;
+
+  const handlePlayNext = () => {
+    if (hasNextTrack && playlist && currentIndex !== undefined && onPlayNext) {
+      const nextTrack = playlist[currentIndex + 1];
+      onPlayNext(nextTrack);
+    }
+  };
+
+  const handlePlayPrev = () => {
+    if (hasPrevTrack && playlist && currentIndex !== undefined && onPlayNext) {
+      const prevTrack = playlist[currentIndex - 1];
+      onPlayNext(prevTrack);
+    }
+  };
 
   const handleShare = async () => {
     setSharing(true);
@@ -88,17 +109,41 @@ export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) 
               <p className="text-sm text-[#2d4a3a]">{track.artist}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all hover:scale-105"
-          >
-            <X className="w-5 h-5 text-[#0b1a12]" />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Previous Track Button */}
+            {hasPrevTrack && (
+              <button
+                onClick={handlePlayPrev}
+                className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all hover:scale-105"
+              >
+                <ChevronLeft className="w-5 h-5 text-[#0b1a12]" />
+              </button>
+            )}
+
+            {/* Next Track Button */}
+            {hasNextTrack && (
+              <button
+                onClick={handlePlayNext}
+                className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all hover:scale-105"
+              >
+                <ChevronRight className="w-5 h-5 text-[#0b1a12]" />
+              </button>
+            )}
+
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="w-10 h-10 rounded-full bg-white/50 hover:bg-white/70 flex items-center justify-center transition-all hover:scale-105"
+            >
+              <X className="w-5 h-5 text-[#0b1a12]" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Player Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8 overflow-auto">
+      <div className="flex-1 flex flex-col items-center justify-start px-6 pb-8 pt-8 overflow-auto">
 
         {/* Track Info */}
         <div className="text-center mb-8 max-w-md">
@@ -250,6 +295,16 @@ export default function Player({ track, onClose, onTip, baseUrl }: PlayerProps) 
                   </span>
                 </a>
               )}
+            </div>
+          )}
+
+          {/* Up Next Indicator */}
+          {hasNextTrack && playlist && currentIndex !== undefined && (
+            <div className="mt-6 panel-surface px-5 py-3 max-w-md mx-auto">
+              <p className="text-xs text-[#2d4a3a] font-semibold mb-1.5">Up Next</p>
+              <p className="text-sm text-[#0b1a12] font-medium">
+                {playlist[currentIndex + 1].title} - {playlist[currentIndex + 1].artist}
+              </p>
             </div>
           )}
         </div>

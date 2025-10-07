@@ -19,17 +19,19 @@ export default function Home() {
   const [page, setPage] = useState(1);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [userContext, setUserContext] = useState<{ fid: number; username: string; pfpUrl?: string } | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'electronic'>('all');
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const LIMIT = 12;
 
-  const fetchTracks = useCallback(async (pageNum: number) => {
+  const fetchTracks = useCallback(async (pageNum: number, filter: 'all' | 'electronic' = 'all') => {
     if (loading) return;
 
     setLoading(true);
     try {
       const offset = (pageNum - 1) * LIMIT;
-      const response = await fetch(`/api/tracks?sort=most_tipped&limit=${LIMIT}&offset=${offset}`);
+      const genreParam = filter === 'electronic' ? `&genre=electronic` : '';
+      const response = await fetch(`/api/tracks?sort=recent&limit=${LIMIT}&offset=${offset}${genreParam}`);
       const data = await response.json();
 
       const newTracks = data.tracks || [];
@@ -58,8 +60,15 @@ export default function Home() {
     init();
 
     // Fetch initial tracks
-    fetchTracks(1);
+    fetchTracks(1, selectedFilter);
   }, []);
+
+  // Refetch when filter changes
+  useEffect(() => {
+    setPage(1);
+    setTracks([]);
+    fetchTracks(1, selectedFilter);
+  }, [selectedFilter]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -87,7 +96,7 @@ export default function Home() {
   // Fetch tracks when page changes
   useEffect(() => {
     if (page > 1) {
-      fetchTracks(page);
+      fetchTracks(page, selectedFilter);
     }
   }, [page]);
 
@@ -143,9 +152,9 @@ export default function Home() {
 
         await shareToFarcaster(trackUrl, castText);
 
-        // Refresh tracks
+        // Refresh tracks with current filter
         setPage(1);
-        fetchTracks(1);
+        fetchTracks(1, selectedFilter);
       }
     } catch (error) {
       console.error('Failed to submit track:', error);
@@ -234,22 +243,42 @@ export default function Home() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 pb-8">
+      <main className="max-w-7xl mx-auto px-4 pb-8 pt-6">
+
+        {/* Filter Pills */}
+        <div className="flex items-center gap-3 mb-6">
+          <button
+            onClick={() => setSelectedFilter('all')}
+            className={`px-5 py-2 rounded-full font-semibold text-sm transition-all ${
+              selectedFilter === 'all'
+                ? 'bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] shadow-lg'
+                : 'bg-white/40 text-[#2d4a3a] hover:bg-white/60'
+            }`}
+          >
+            Community Curated
+          </button>
+          <button
+            onClick={() => setSelectedFilter('electronic')}
+            className={`px-5 py-2 rounded-full font-semibold text-sm transition-all ${
+              selectedFilter === 'electronic'
+                ? 'bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] shadow-lg'
+                : 'bg-white/40 text-[#2d4a3a] hover:bg-white/60'
+            }`}
+          >
+            Electronic
+          </button>
+        </div>
 
         {/* All Tracks with Infinite Scroll */}
         {tracks.length > 0 && (
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <TrendingUp className="w-5 h-5 text-[--accent-glow]" />
-              <h2 className="text-2xl font-bold">Community Curated</h2>
-            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {tracks.map((track) => (
+              {tracks.map((track, index) => (
                 <MusicCard
                   key={track.id}
                   track={track}
-                  onPlay={setSelectedTrack}
+                  onPlay={() => setSelectedTrack(track)}
                   onTip={handleTip}
                 />
               ))}
@@ -295,6 +324,9 @@ export default function Home() {
           onClose={() => setSelectedTrack(null)}
           onTip={handleTip}
           baseUrl={typeof window !== 'undefined' ? window.location.origin : ''}
+          playlist={tracks}
+          currentIndex={tracks.findIndex(t => t.id === selectedTrack.id)}
+          onPlayNext={setSelectedTrack}
         />
       )}
     </div>

@@ -6,7 +6,7 @@ import { getUserContext, initializeFarcaster } from '@/lib/farcaster';
 import { MusicTrack } from '@/types/music';
 import MusicCard from '@/components/MusicCard';
 import Player from '@/components/Player';
-import { ArrowLeft, User, Edit3, Music, Users, DollarSign, TrendingUp, Award, Folder } from 'lucide-react';
+import { ArrowLeft, User, Edit3, Music, Users, DollarSign, TrendingUp, Award, Folder, Share2 } from 'lucide-react';
 import Image from 'next/image';
 
 interface UserStats {
@@ -83,6 +83,22 @@ export default function ProfilePage() {
       setIsEditingBio(false);
     } catch (error) {
       console.error('Failed to save bio:', error);
+    }
+  };
+
+  const handleShareProfile = async () => {
+    if (!userContext) return;
+
+    const baseUrl = window.location.origin;
+    const profileCardUrl = `${baseUrl}/api/profile-card?username=${encodeURIComponent(userContext.username)}&pfpUrl=${encodeURIComponent(userContext.pfpUrl || '')}&tracksShared=${stats.tracksShared}&tipsEarned=${stats.tipsEarned}&successRate=${stats.successRate}&bio=${encodeURIComponent(bio)}`;
+
+    const castText = `Check out my curator profile on Curio! 🎵\n\n${stats.tracksShared} tracks shared • $${stats.tipsEarned} earned • ${stats.successRate}% success rate`;
+
+    try {
+      const { shareToFarcaster } = await import('@/lib/farcaster');
+      await shareToFarcaster(profileCardUrl, castText);
+    } catch (error) {
+      console.error('Failed to share profile:', error);
     }
   };
 
@@ -210,6 +226,15 @@ export default function ProfilePage() {
               <div className="text-xs text-[#2d4a3a]">Success Rate</div>
             </div>
           </div>
+
+          {/* Share Profile Button */}
+          <button
+            onClick={handleShareProfile}
+            className="mt-6 w-full py-3 bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] font-semibold rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform shadow-lg"
+          >
+            <Share2 className="w-5 h-5" />
+            Share Profile
+          </button>
         </div>
 
         {/* Badges Section */}
@@ -288,6 +313,9 @@ export default function ProfilePage() {
           onClose={() => setSelectedTrack(null)}
           onTip={handleTip}
           baseUrl={typeof window !== 'undefined' ? window.location.origin : ''}
+          playlist={userTracks}
+          currentIndex={userTracks.findIndex(t => t.id === selectedTrack.id)}
+          onPlayNext={setSelectedTrack}
         />
       )}
     </div>
