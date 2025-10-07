@@ -22,6 +22,8 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
   const [showTipAmounts, setShowTipAmounts] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [tipSuccess, setTipSuccess] = useState(false);
+  const [lastTipAmount, setLastTipAmount] = useState<number>(0);
+  const [showShareTip, setShowShareTip] = useState(false);
 
   const tipAmounts = [1, 5, 10];
 
@@ -53,6 +55,17 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
     setSharing(false);
   };
 
+  const handleShareTip = async () => {
+    setSharing(true);
+    const trackUrl = `${baseUrl}/track/${track.id}`;
+    await shareToFarcaster(
+      trackUrl,
+      `Just tipped $${lastTipAmount} USDC to @${track.sharedBy.username} for sharing "${track.title}" by ${track.artist}! 💰🎵`
+    );
+    setSharing(false);
+    setShowShareTip(false);
+  };
+
   const handleTip = async (amount: number) => {
     setTipping(true);
     try {
@@ -76,9 +89,14 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
         });
 
         if (response.ok) {
-          // Show success animation
+          // Show success animation and share option
           setTipSuccess(true);
-          setTimeout(() => setTipSuccess(false), 2000);
+          setLastTipAmount(amount);
+          setShowShareTip(true);
+
+          setTimeout(() => {
+            setTipSuccess(false);
+          }, 3000);
 
           // Update local state
           onTip(track.id);
@@ -200,8 +218,19 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
         <div className="flex flex-col items-center gap-4 w-full max-w-md">
           {/* Success Animation */}
           {tipSuccess && (
-            <div className="animate-bounce text-white text-lg font-bold">
-              🎉 Tip sent successfully! 💰
+            <div className="text-center">
+              <div className="animate-bounce text-white text-lg font-bold mb-3">
+                🎉 Tip sent successfully! 💰
+              </div>
+              {showShareTip && (
+                <button
+                  onClick={handleShareTip}
+                  disabled={sharing}
+                  className="panel-surface px-6 py-3 text-sm font-semibold text-[#0b1a12] hover:scale-105 transition-all disabled:opacity-50"
+                >
+                  {sharing ? 'Sharing...' : '📢 Share tip on Farcaster'}
+                </button>
+              )}
             </div>
           )}
 

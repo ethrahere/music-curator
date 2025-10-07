@@ -21,7 +21,10 @@ export async function POST(
     const body = await request.json();
     const { amount, tipperFid, tipperUsername, transaction } = body;
 
+    console.log('Tip request received:', { id, amount, tipperFid, tipperUsername, transaction });
+
     if (!amount || !tipperFid || !tipperUsername) {
+      console.error('Missing required fields:', { amount, tipperFid, tipperUsername });
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
@@ -61,14 +64,18 @@ export async function POST(
     }
 
     // Record tip transaction using address-based schema
-    const { error: tipError } = await supabase.from('tips').insert({
+    const tipInsertData = {
       recommendation_id: id,
       tipper_address: tipperAddress,
       curator_address: track.curator_address,
       amount: 0, // Legacy integer field
       amount_usd: amount,
       transaction_hash: transaction?.hash,
-    });
+    };
+
+    console.log('Inserting tip:', tipInsertData);
+
+    const { data: tipData, error: tipError } = await supabase.from('tips').insert(tipInsertData).select();
 
     if (tipError) {
       console.error('Failed to record tip:', tipError);
@@ -77,6 +84,8 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    console.log('Tip inserted successfully:', tipData);
 
     // Update tip count and total on recommendation
     const newTipCount = (track.tip_count || 0) + 1;
