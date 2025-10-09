@@ -1,0 +1,208 @@
+CURIO VISUAL IDENTITY DIRECTION
+
+Theme: “Tactile Digital Radio”
+
+🎧 Essence
+
+Feels like tuning a beautifully crafted music device built in 2030 — matte, precise, physical, warm.
+
+🧩 Design Language
+Element	Direction	Description
+Base Canvas	Off-white or soft gray (#f6f6f6 → #e8e8e8)	Gives that clean device surface feel instead of dark neon Web3 UI.
+Depth System	Neumorphism + subtle shadows	Use soft extruded cards with 2 shadows: light top-left + dark bottom-right. This creates “physical” touch zones.
+Accent Surfaces	Glossy buttons / knobs	Add 1–2 skeuomorphic elements — e.g. circular play button that feels like a brushed aluminum dial.
+Typography	Mix of geometric sans + condensed monospace	e.g. Neue Montreal (titles) + IBM Plex Mono (metadata / track timers). Evokes radio interface precision.
+Color Accents	Teenage Engineering inspired muted brights: coral, mint, mustard, sky blue	One accent per section; never full rainbow — keeps it mature.
+Motion	Micro spring transitions; button presses should “sink”	Everything should feel pressable, not sliding. Slow hover shadows.
+Sound Design (optional)	Subtle click/ping feedback	Like touching a physical synth knob. Adds subconscious premium feel.
+🪩 UI Hierarchy Concept
+
+Feed View
+
+Feels like a grid of digital radio tiles
+
+Each tile slightly raised, with a circular play “pad” and a small LED-style dot that glows when playing
+
+Text: “Curated by @ethra” in small geometric font below
+
+Now Playing Modal
+
+Expands softly, as if pressing down a button
+
+Center: album art with rounded bezel shadow
+
+Below:
+
+waveform (tiny glowing bars)
+
+knob-like Tip and Co-sign buttons (skeuomorphic dials)
+
+Background: matte surface with faint grain or paper texture
+
+Curator Profile
+
+Header like an instrument panel
+
+Rounded info modules: total tips, co-signs, taste score
+
+Each number shown on small 7-segment LED-style font
+
+Scroll area below feels like flipping through radio stations (horizontal song cards)
+
+🎚️ Visual Reference Anchors:
+
+Teenage Engineering OP-1 interface
+
+IKEA x Teenage Engineering Frekvens line
+
+2000s Apple skeuomorphism (GarageBand / iPod scroll)
+
+Dallo-style neumorphic concept you shared (for structure + light)
+
+NTS Radio website (for layout rhythm)
+
+🧠 Emotional Feel
+Moment	Desired feeling
+Opening app	“I’m inside a beautifully crafted digital device.”
+Playing a song	“This feels like tuning into a hidden frequency.”
+Tipping / co-signing	“I just pressed a real button; it clicked.”
+Visiting curator profile	“This person’s taste is displayed like a record collection.”
+⚙️ Implementation Notes
+
+Use a light theme with matte grays as base (#f2f2f2, #ebebeb).
+
+Implement dual shadows for neumorphism:
+
+box-shadow: 8px 8px 16px #d1d1d1, -8px -8px 16px #ffffff;
+
+
+Keep accent shadows subtle and high radius for soft depth.
+
+Buttons: slightly raised; on press → inner shadow (“pressed in” look).
+
+Use border-radius: 18px consistently — organic edges.
+
+Consider adding subtle noise texture overlay for analog feel (using CSS background-image: url(noise.png); opacity: 0.1).
+
+
+CURIO DESIGN SYSTEM v1
+
+Theme: Tactile Digital Radio
+Mood Words: Premium · Playful Precision · Warm Minimalism
+
+🎨 1. Color Palette
+Role	Color	Hex	Notes
+Base Background	Matte Soft Gray	#ECECEC	Feels like smooth device plastic. Not flat white.
+Raised Surfaces / Cards	Light Neutral	#F6F6F6	For neumorphic panels.
+Pressed Surfaces / Shadows	Soft Gray	#D9D9D9	Used for inner shadows.
+Accent 1	Muted Coral	#F36C5B	Primary highlight (buttons, icons).
+Accent 2	Mint Green	#B8E1C2	Optional alt accent for secondary modules.
+Accent 3	Warm Mustard	#EFBF56	For tips, badges, and interaction glow.
+Text Primary	Charcoal Gray	#2E2E2E	High contrast but not black.
+Text Secondary	Warm Gray	#5E5E5E	Subtle metadata and UI copy.
+Highlight Glow	Neon Off-White	#FFFDF7	Used for light reflections or LED dots.
+
+💡 Rule: Never use more than 2 accent colors on a single screen.
+This keeps it feeling premium, not playful.
+
+🧱 2. Shadows & Depth (Neumorphism)
+
+Use dual-direction shadows to simulate soft extrusion.
+
+/* Raised Card */
+box-shadow: 8px 8px 16px #d0d0d0, -8px -8px 16px #ffffff;
+border-radius: 18px;
+
+/* Pressed Button (active state) */
+box-shadow: inset 8px 8px 16px #d0d0d0, inset -8px -8px 16px #ffffff;
+border-radius: 18px;
+
+
+Add tiny light speck noise texture overlay for depth:
+
+background-image: url('/noise.png');
+opacity: 0.08;
+mix-blend-mode: overlay;
+
+✍️ 3. Typography
+Role	Font	Style	Use
+Primary Typeface	Neue Montreal or Satoshi	Geometric sans-serif	Headers, clean UI labels
+Secondary Typeface	IBM Plex Mono or Space Mono	Monospace	Track timers, metadata, numbers
+Fallback Stack	Inter, system-ui, sans-serif	—	For performance
+Title Example	font-weight: 600; letter-spacing: -0.02em; text-transform: lowercase;		
+Mono Accent Example	font-weight: 400; color: #5e5e5e; font-size: 0.85rem;		
+🎛️ 4. Component Styles
+Buttons (Tip / Co-sign / Play)
+
+Shape: circular or rounded pill
+
+Base: raised, light gray
+
+Active: pressed in
+
+Icon: minimal line or solid (e.g., Lucide icons)
+
+Example (Tailwind-like):
+
+.btn {
+  background: #f6f6f6;
+  border-radius: 18px;
+  box-shadow: 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff;
+  transition: all 0.2s ease-in-out;
+}
+.btn:active {
+  box-shadow: inset 6px 6px 12px #d0d0d0, inset -6px -6px 12px #ffffff;
+}
+
+Cards (Song / Curator)
+
+18–24px corner radius
+
+Inside padding 16–20px
+
+Optional small LED dot (accent color glow) when playing
+
+Use drop-shadow + subtle noise overlay
+
+Play Bar
+
+Minimal horizontal track with soft highlight ring
+
+Consider skeuomorphic knob for volume / scrubbing later
+
+💫 5. Motion & Interactions
+Element	Motion Type	Duration	Description
+Buttons	Scale down on press	80ms	Feels physical
+Cards	Elevate subtly on hover	120ms	Gives depth feedback
+Play waveform	Looping ease-in-out pulse	1.5s	Feels organic
+Modal open	Soft scale-in + fade	200ms	Like pressing a touchscreen panel
+
+Subtle, snappy, tactile — not elastic or bouncy.
+
+📻 6. Iconography & Micro Elements
+
+Use monoline icons (Lucide, Iconoir) — 1.5px stroke.
+
+Replace generic icons with audio-device metaphors:
+
+Co-sign → small glowing LED dot or toggle switch
+
+Tip → circular “coin insert” slot
+
+Play → triangle carved into a round pad
+
+🌈 7. Optional Upgrades
+
+Add light ambient sound (a short radio static fade-in before song starts).
+
+Add custom cursor — a small glowing dot with slight trail.
+
+Use motion blur hover effect on album covers for premium tactility.
+
+✨ Visual Summary
+Attribute	Target Feeling
+Visual weight	soft, clean, device-like
+Lighting	ambient top-left, matte surface
+Texture	faint grain, tactile
+Accent motion	precise, satisfying
+Brand aura	“a well-designed music instrument for curators”
