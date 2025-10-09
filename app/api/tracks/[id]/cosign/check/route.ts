@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const getSupabase = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
     throw new Error('Missing Supabase environment variables');
@@ -21,8 +21,19 @@ export async function GET(
     const { searchParams } = request.nextUrl;
     const userFid = searchParams.get('userFid');
 
-    if (!userFid) {
-      return NextResponse.json({ success: false, error: 'Missing user FID' }, { status: 400 });
+    if (!userFid || userFid === '0') {
+      // User not authenticated - just return co-sign count
+      const supabase = getSupabase();
+      const { count } = await supabase
+        .from('co_signs')
+        .select('id', { count: 'exact', head: true })
+        .eq('recommendation_id', id);
+
+      return NextResponse.json({
+        success: true,
+        hasCoSigned: false,
+        coSignCount: count || 0,
+      });
     }
 
     const supabase = getSupabase();

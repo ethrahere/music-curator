@@ -1,10 +1,10 @@
 'use client';
 
 import { MusicTrack } from '@/types/music';
-import { Share2, X, DollarSign, ExternalLink, ChevronLeft, ChevronRight, Loader2, Heart } from 'lucide-react';
+import { X, DollarSign, Heart } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { shareToFarcaster, getUserContext } from '@/lib/farcaster';
+import { getUserContext } from '@/lib/farcaster';
 import sdk from '@farcaster/frame-sdk';
 import { useState, useEffect } from 'react';
 
@@ -18,23 +18,33 @@ interface PlayerProps {
   onPlayNext?: (nextTrack: MusicTrack) => void;
 }
 
-export default function Player({ track, onClose, onTip, baseUrl, playlist, currentIndex, onPlayNext }: PlayerProps) {
-  const [sharing, setSharing] = useState(false);
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+}
+
+export default function Player({ track, onClose, onTip }: PlayerProps) {
   const [tipping, setTipping] = useState(false);
   const [coSigning, setCoSigning] = useState(false);
   const [hasCoSigned, setHasCoSigned] = useState(false);
   const [showTipAmounts, setShowTipAmounts] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [tipSuccess, setTipSuccess] = useState(false);
-  const [lastTipAmount, setLastTipAmount] = useState<number>(0);
-  const [showShareTip, setShowShareTip] = useState(false);
   const [coSignCount, setCoSignCount] = useState(0);
+  const [localTipTotal, setLocalTipTotal] = useState(track.tips || 0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const tipAmounts = [1, 5, 10];
 
-  // Check if there's a next track
-  const hasNextTrack = playlist && currentIndex !== undefined && currentIndex < playlist.length - 1;
-  const hasPrevTrack = playlist && currentIndex !== undefined && currentIndex > 0;
+  // Toast system
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 2000);
+  };
 
   // Check if user has already co-signed this track
   useEffect(() => {
@@ -53,41 +63,6 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
     };
     checkCoSign();
   }, [track.id]);
-
-  const handlePlayNext = () => {
-    if (hasNextTrack && playlist && currentIndex !== undefined && onPlayNext) {
-      const nextTrack = playlist[currentIndex + 1];
-      onPlayNext(nextTrack);
-    }
-  };
-
-  const handlePlayPrev = () => {
-    if (hasPrevTrack && playlist && currentIndex !== undefined && onPlayNext) {
-      const prevTrack = playlist[currentIndex - 1];
-      onPlayNext(prevTrack);
-    }
-  };
-
-  const handleShare = async () => {
-    setSharing(true);
-    const trackUrl = `${baseUrl}/track/${track.id}`;
-    await shareToFarcaster(
-      trackUrl,
-      `🎵 "${track.title}" by ${track.artist} — curated by @${track.sharedBy.username}`
-    );
-    setSharing(false);
-  };
-
-  const handleShareTip = async () => {
-    setSharing(true);
-    const trackUrl = `${baseUrl}/track/${track.id}`;
-    await shareToFarcaster(
-      trackUrl,
-      `tipped $${lastTipAmount} to @${track.sharedBy.username} for sharing "${track.title}" 💰🎵`
-    );
-    setSharing(false);
-    setShowShareTip(false);
-  };
 
   const handleCoSign = async () => {
     if (hasCoSigned || coSigning) return;
@@ -108,11 +83,13 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
       if (response.ok && data.success) {
         setHasCoSigned(true);
         setCoSignCount(prev => prev + 1);
+        showToast('+1 Co-sign added 💫', 'success');
       } else {
-        console.error('Failed to co-sign:', data.error);
+        showToast(data.error || 'Already co-signed', 'error');
       }
     } catch (error) {
       console.error('Failed to co-sign:', error);
+      showToast('Transaction failed', 'error');
     } finally {
       setCoSigning(false);
     }
@@ -129,8 +106,6 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
         amount: (amount * 1000000).toString(),
         recipientFid: curatorFid,
       });
-
-      console.log('Tip SDK result:', result);
 
       if (!result.success) {
         console.log('Tip cancelled or failed:', result.reason);
@@ -154,16 +129,22 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
 
       if (response.ok && data.success) {
         setTipSuccess(true);
-        setLastTipAmount(amount);
-        setShowShareTip(true);
+        setLocalTipTotal(prev => prev + amount);
+        showToast(`Tip sent 💸`, 'success');
         onTip(track.id);
         setShowTipAmounts(false);
         setCustomAmount('');
+
+        setTimeout(() => {
+          setTipSuccess(false);
+        }, 3000);
       } else {
         console.error('Failed to record tip in database:', data);
+        showToast('Transaction failed', 'error');
       }
     } catch (error) {
       console.error('Failed to tip:', error);
+      showToast('Transaction failed', 'error');
     } finally {
       setTipping(false);
     }
@@ -171,153 +152,149 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#ECECEC]">
-      {/* Header - Neumorphic Panel */}
-      <div className="p-4">
-        <div className="panel-surface px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-12 h-12 relative rounded-xl overflow-hidden" style={{ boxShadow: '4px 4px 8px #d0d0d0, -4px -4px 8px #ffffff' }}>
-              <Image src={track.artwork} alt={track.title} fill className="object-cover" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-[#2E2E2E] text-base truncate lowercase">{track.title}</h2>
-              <p className="text-sm text-[#5E5E5E] truncate lowercase">{track.artist}</p>
-            </div>
+      {/* ToastFeedback - Top Center */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2">
+        {toasts.map(toast => (
+          <div
+            key={toast.id}
+            className={`panel-surface px-6 py-3 min-w-[200px] text-center animate-in fade-in slide-in-from-top-2 duration-200 ${
+              toast.type === 'error' ? 'bg-red-100' : ''
+            }`}
+          >
+            <p className={`text-sm font-semibold ${toast.type === 'error' ? 'text-red-800' : 'text-[#2E2E2E]'}`}>
+              {toast.message}
+            </p>
           </div>
-
-          <div className="flex items-center gap-2">
-            {hasPrevTrack && (
-              <button onClick={handlePlayPrev} className="btn-circular w-10 h-10">
-                <ChevronLeft className="w-5 h-5 text-[#2E2E2E]" />
-              </button>
-            )}
-
-            {hasNextTrack && (
-              <button onClick={handlePlayNext} className="btn-circular w-10 h-10">
-                <ChevronRight className="w-5 h-5 text-[#2E2E2E]" />
-              </button>
-            )}
-
-            <button onClick={onClose} className="btn-circular w-10 h-10">
-              <X className="w-5 h-5 text-[#2E2E2E]" />
-            </button>
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Player Content */}
-      <div className="flex-1 flex flex-col items-center justify-start px-6 pb-8 pt-8 overflow-auto">
-
-        {/* Track Info */}
-        <div className="text-center mb-8 max-w-md">
-          <h1 className="text-3xl font-bold text-[#2E2E2E] mb-2 lowercase" style={{ letterSpacing: '-0.02em' }}>{track.title}</h1>
-          <p className="text-xl text-[#5E5E5E] mb-4 lowercase">{track.artist}</p>
-          <div className="flex items-center justify-center gap-3">
-            <span className="pill-tag">{track.platform}</span>
-            <span className="text-sm text-[#5E5E5E] lowercase">
-              by{' '}
-              <Link
-                href={`/curator/${track.sharedBy.username}`}
-                className="hover:text-[#2E2E2E] hover:underline transition-colors"
+      {/* HeaderBar */}
+      <header className="sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="panel-surface px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              {/* Left: Close Button */}
+              <button
+                onClick={onClose}
+                className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] flex items-center justify-center shadow-lg transition-all hover:scale-105"
               >
-                @{track.sharedBy.username}
-              </Link>
-            </span>
+                <X className="w-5 h-5 text-[#0b1a12]" />
+              </button>
+
+              {/* Center: Logo */}
+              <div className="flex-1 flex justify-center">
+                <Image
+                  src="/curio.png"
+                  alt="Curio"
+                  width={100}
+                  height={32}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+
+              {/* Right: Empty placeholder for symmetry */}
+              <div className="flex-shrink-0 w-9 h-9"></div>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* Embedded Player - Neumorphic Bezel */}
-        {track.embedUrl && (
-          <div className="w-full max-w-2xl mb-8">
-            <div className="relative w-full rounded-2xl overflow-hidden" style={{ boxShadow: '12px 12px 24px #d0d0d0, -12px -12px 24px #ffffff' }}>
-              {track.platform === 'soundcloud' ? (
-                <iframe
-                  width="100%"
-                  height="166"
-                  scrolling="no"
-                  frameBorder="no"
-                  allow="autoplay"
-                  src={track.embedUrl}
-                  className="w-full"
-                />
-              ) : track.platform === 'spotify' ? (
-                <iframe
-                  src={track.embedUrl}
-                  width="100%"
-                  height="352"
-                  frameBorder="0"
-                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-                  loading="lazy"
-                  className="w-full"
-                />
-              ) : (
-                <iframe
-                  width="100%"
-                  height="315"
-                  src={track.embedUrl}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full"
-                />
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-auto px-4 pt-6 pb-24">
+        <div className="max-w-2xl mx-auto">
+          {/* TrackCard */}
+          <div className="panel-surface overflow-hidden mb-6">
+            {/* AlbumArt (full width) with embedded player */}
+            {track.embedUrl && (
+              <div className="relative w-full">
+                <div
+                  className="relative w-full overflow-hidden"
+                  style={{ boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)' }}
+                >
+                  {track.platform === 'soundcloud' ? (
+                    <iframe
+                      width="100%"
+                      height="166"
+                      scrolling="no"
+                      frameBorder="no"
+                      allow="autoplay"
+                      src={track.embedUrl}
+                      className="w-full"
+                    />
+                  ) : track.platform === 'spotify' ? (
+                    <iframe
+                      src={track.embedUrl}
+                      width="100%"
+                      height="352"
+                      frameBorder="0"
+                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                      loading="lazy"
+                      className="w-full"
+                    />
+                  ) : (
+                    <iframe
+                      width="100%"
+                      height="315"
+                      src={track.embedUrl}
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Track Info Section */}
+            <div className="p-6">
+              {/* Track Title & Artist */}
+              <h1 className="text-2xl font-bold text-[#2E2E2E] mb-1 lowercase" style={{ letterSpacing: '-0.02em' }}>
+                {track.title}
+              </h1>
+              <p className="text-lg text-[#5E5E5E] mb-4 lowercase">{track.artist}</p>
+
+              {/* Review Text - only if available */}
+              {track.review && (
+                <p className="text-sm text-[#5E5E5E] mb-4 italic lowercase">
+                  &ldquo;{track.review}&rdquo;
+                </p>
               )}
+
+              {/* CuratorInfo */}
+              <Link href={`/curator/${track.sharedBy.username}`} className="block mb-4">
+                <div className="panel-surface-flat p-2 flex items-center gap-3 hover:scale-[1.01] transition-transform">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F36C5B] to-[#B8E1C2] flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">
+                      {track.sharedBy.username.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-[#2E2E2E] lowercase">@{track.sharedBy.username}</p>
+                    <p className="text-xs text-[#5E5E5E] lowercase">curator</p>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-full bg-[#EFBF56]/30 flex items-center gap-1.5">
+                    <span className="text-xs">⭐</span>
+                    <span className="mono-number text-xs font-bold text-[#2E2E2E]">
+                      {track.sharedBy.curatorScore || 0}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+
+              {/* SocialProofBar - Moved here from bottom */}
+              <div className="text-center">
+                <p className="mono-number text-xs text-[#5E5E5E]">
+                  💫 {coSignCount} Co-signs · 💸 ${localTipTotal.toFixed(2)} Tipped
+                </p>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Actions */}
-        <div className="flex flex-col items-center gap-4 w-full max-w-md">
-          {/* Success Message with Share Tip */}
-          {tipSuccess && showShareTip && (
-            <div className="panel-surface p-6 w-full relative">
-              <button
-                onClick={() => {
-                  setTipSuccess(false);
-                  setShowShareTip(false);
-                }}
-                className="absolute top-3 right-3 btn-circular w-8 h-8"
-              >
-                <X className="w-4 h-4 text-[#2E2E2E]" />
-              </button>
-
-              <div className="text-center mb-4">
-                <div className="text-2xl mb-2">🎉</div>
-                <h3 className="text-lg font-bold text-[#2E2E2E] mb-1 lowercase">
-                  tip sent!
-                </h3>
-                <p className="text-sm text-[#5E5E5E] lowercase">
-                  you tipped ${lastTipAmount} to @{track.sharedBy.username}
-                </p>
-              </div>
-
-              <div className="panel-surface-flat p-4 mb-4">
-                <p className="text-sm text-[#2E2E2E] font-medium text-center lowercase">
-                  💡 share your tip to boost your curator score!
-                </p>
-              </div>
-
-              <button
-                onClick={handleShareTip}
-                disabled={sharing}
-                className="btn-accent w-full flex items-center justify-center gap-2"
-              >
-                {sharing ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="lowercase">sharing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="w-5 h-5" />
-                    <span className="lowercase">share tip</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* Tip Amount Selection */}
+          {/* Tip Amount Selection - Inline when active */}
           {showTipAmounts && (
-            <div className="panel-surface p-6 w-full">
+            <div className="panel-surface p-6 mb-6 animate-in fade-in slide-in-from-bottom-4">
               <h3 className="text-lg font-bold text-[#2E2E2E] mb-4 text-center lowercase">
                 tip amount (usdc)
               </h3>
@@ -365,72 +342,71 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
               </button>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* Main Action Buttons - Knob-like Dials */}
-          {!showTipAmounts && !tipSuccess && (
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {/* Co-sign Button - Toggle Switch Style */}
-              <button
-                onClick={handleCoSign}
-                disabled={hasCoSigned || coSigning}
-                className={`btn-circular w-16 h-16 ${hasCoSigned ? 'pressed' : ''}`}
-                title={hasCoSigned ? 'Already co-signed' : 'Co-sign this track'}
-              >
-                <div className="flex flex-col items-center">
-                  <Heart className={`w-6 h-6 ${hasCoSigned ? 'text-[#F36C5B] fill-[#F36C5B]' : 'text-[#5E5E5E]'}`} />
-                  <span className="mono-number text-[0.6rem] mt-0.5">{coSignCount}</span>
-                </div>
-              </button>
+      {/* ActionBar - Fixed Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#ECECEC] px-4 py-3">
+        {/* Control Bar Panel - Synth-like raised strip */}
+        <div
+          className="max-w-2xl mx-auto p-3 grid grid-cols-2 gap-3"
+          style={{
+            background: '#F6F6F6',
+            borderRadius: '18px',
+            boxShadow: '6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff',
+          }}
+        >
+          {/* Co-sign Button */}
+          <button
+            onClick={handleCoSign}
+            disabled={hasCoSigned || coSigning}
+            className={`
+              ${hasCoSigned ? 'pressed' : 'btn-neomorph'}
+              py-5 px-4 flex items-center justify-center gap-2 transition-all
+              ${hasCoSigned ? 'opacity-100' : 'hover:scale-[1.02]'}
+              disabled:cursor-not-allowed
+            `}
+            style={
+              hasCoSigned
+                ? undefined
+                : tipSuccess
+                ? { boxShadow: '0 0 20px rgba(243, 108, 91, 0.6)', animation: 'glow-border 500ms ease-out' }
+                : undefined
+            }
+          >
+            <Heart
+              className={`w-5 h-5 ${
+                hasCoSigned ? 'text-[#F36C5B] fill-[#F36C5B]' : 'text-[#5E5E5E]'
+              }`}
+            />
+            <span className="text-sm font-bold lowercase">
+              {coSigning ? 'signing...' : hasCoSigned ? 'co-signed 💫' : 'co-sign'}
+            </span>
+          </button>
 
-              {/* Tip Button - Coin Slot Style */}
-              <button
-                onClick={() => setShowTipAmounts(true)}
-                className="btn-accent flex items-center gap-2 px-8 py-4 rounded-[18px]"
-              >
-                <DollarSign className="w-5 h-5" />
-                <span className="lowercase font-bold">tip</span>
-                <span className="mono-number text-sm opacity-90">
-                  ${track.tips}
-                </span>
-              </button>
-
-              {/* Share Button */}
-              <button
-                onClick={handleShare}
-                disabled={sharing}
-                className="btn-circular w-16 h-16 disabled:opacity-50"
-              >
-                {sharing ? (
-                  <Loader2 className="w-6 h-6 text-[#5E5E5E] animate-spin" />
-                ) : (
-                  <Share2 className="w-6 h-6 text-[#5E5E5E]" />
-                )}
-              </button>
-
-              {/* Open in Platform Button */}
-              {(track.platform === 'spotify' || track.platform === 'apple music') && (
-                <a
-                  href={track.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-neomorph flex items-center gap-2 px-6 py-3 lowercase text-sm"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>open in {track.platform === 'spotify' ? 'spotify' : 'apple music'}</span>
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Up Next Indicator */}
-          {hasNextTrack && playlist && currentIndex !== undefined && (
-            <div className="mt-6 panel-surface-flat px-5 py-3 max-w-md mx-auto">
-              <p className="text-xs text-[#5E5E5E] font-semibold mb-1.5 lowercase">up next</p>
-              <p className="text-sm text-[#2E2E2E] font-medium lowercase">
-                {playlist[currentIndex + 1].title} - {playlist[currentIndex + 1].artist}
-              </p>
-            </div>
-          )}
+          {/* Tip Button */}
+          <button
+            onClick={() => setShowTipAmounts(true)}
+            disabled={showTipAmounts}
+            className={`
+              py-5 px-4 flex items-center justify-center gap-2
+              ${tipSuccess ? 'animate-pulse' : ''}
+              disabled:opacity-50
+            `}
+            style={{
+              background: 'linear-gradient(135deg, #B8E1C2 0%, #a8d4b2 100%)',
+              borderRadius: '18px',
+              boxShadow: tipSuccess
+                ? '0 0 20px rgba(184, 225, 194, 0.8), 4px 4px 12px rgba(184, 225, 194, 0.3)'
+                : '4px 4px 12px rgba(184, 225, 194, 0.3)',
+              color: '#2E2E2E',
+              fontWeight: 'bold',
+              transition: 'all 0.08s ease-in-out',
+            }}
+          >
+            <DollarSign className="w-5 h-5" />
+            <span className="text-sm font-bold lowercase">tip</span>
+          </button>
         </div>
       </div>
     </div>

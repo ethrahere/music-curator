@@ -219,3 +219,30 @@ body::before {
 .pressed {
   box-shadow: var(--shadow-pressed);
 }
+
+/* Play button hover glow */
+.btn-circular:hover {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff;
+  }
+  50% {
+    box-shadow: 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff, 0 0 10px rgba(243, 108, 91, 0.4);
+  }
+}
+
+/* Glow border animation for co-sign after tip */
+@keyframes glow-border {
+  0% {
+    box-shadow: 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff;
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(243, 108, 91, 0.8), 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff;
+  }
+  100% {
+    box-shadow: 6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff;
+  }
+}

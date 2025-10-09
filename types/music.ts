@@ -12,8 +12,10 @@ export interface MusicTrack {
   sharedBy: {
     fid: number;
     username: string;
+    curatorScore?: number;
   };
   timestamp: number;
+  review?: string;
 }
 
 export interface MusicMetadata {
