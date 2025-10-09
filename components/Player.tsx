@@ -64,6 +64,18 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
     checkCoSign();
   }, [track.id]);
 
+  // Body scroll lock when modal is open
+  useEffect(() => {
+    if (showTipAmounts) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showTipAmounts]);
+
   const handleCoSign = async () => {
     if (hasCoSigned || coSigning) return;
 
@@ -95,6 +107,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
     }
   };
 
+
   const handleTip = async (amount: number) => {
     setTipping(true);
     try {
@@ -109,6 +122,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
 
       if (!result.success) {
         console.log('Tip cancelled or failed:', result.reason);
+        setTipping(false);
         return;
       }
 
@@ -131,9 +145,12 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
         setTipSuccess(true);
         setLocalTipTotal(prev => prev + amount);
         showToast(`Tip sent 💸`, 'success');
-        onTip(track.id);
         setShowTipAmounts(false);
         setCustomAmount('');
+        // Notify parent component that tip succeeded (optional callback)
+        if (onTip) {
+          onTip(track.id);
+        }
 
         setTimeout(() => {
           setTipSuccess(false);
@@ -292,56 +309,6 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
             </div>
           </div>
 
-          {/* Tip Amount Selection - Inline when active */}
-          {showTipAmounts && (
-            <div className="panel-surface p-6 mb-6 animate-in fade-in slide-in-from-bottom-4">
-              <h3 className="text-lg font-bold text-[#2E2E2E] mb-4 text-center lowercase">
-                tip amount (usdc)
-              </h3>
-
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {tipAmounts.map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => handleTip(amount)}
-                    disabled={tipping}
-                    className="btn-neomorph px-6 py-4 font-bold disabled:opacity-50"
-                  >
-                    ${amount}
-                  </button>
-                ))}
-              </div>
-
-              <div className="space-y-3">
-                <div className="relative">
-                  <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5E5E5E] opacity-50" />
-                  <input
-                    type="number"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
-                    placeholder="custom amount"
-                    min="1"
-                    step="1"
-                    className="input-shell w-full !pl-12"
-                  />
-                </div>
-                <button
-                  onClick={() => customAmount && handleTip(Number(customAmount))}
-                  disabled={!customAmount || tipping}
-                  className="btn-neomorph w-full disabled:opacity-50 lowercase"
-                >
-                  {tipping ? 'processing...' : 'send tip'}
-                </button>
-              </div>
-
-              <button
-                onClick={() => setShowTipAmounts(false)}
-                className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase"
-              >
-                cancel
-              </button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -361,25 +328,34 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
             onClick={handleCoSign}
             disabled={hasCoSigned || coSigning}
             className={`
-              ${hasCoSigned ? 'pressed' : 'btn-neomorph'}
-              py-5 px-4 flex items-center justify-center gap-2 transition-all
-              ${hasCoSigned ? 'opacity-100' : 'hover:scale-[1.02]'}
-              disabled:cursor-not-allowed
+              py-5 px-4 flex items-center justify-center gap-2 rounded-[18px]
+              ${hasCoSigned ? 'cursor-default pointer-events-none' : 'hover:scale-[1.02]'}
+              transition-all duration-100
             `}
             style={
               hasCoSigned
-                ? undefined
-                : tipSuccess
-                ? { boxShadow: '0 0 20px rgba(243, 108, 91, 0.6)', animation: 'glow-border 500ms ease-out' }
-                : undefined
+                ? {
+                    background: '#F6F6F6',
+                    boxShadow: 'inset 6px 6px 12px #d0d0d0, inset -6px -6px 12px #ffffff',
+                  }
+                : {
+                    background: '#F6F6F6',
+                    borderRadius: '18px',
+                    boxShadow: '4px 4px 8px #d0d0d0, -4px -4px 8px #ffffff',
+                  }
             }
           >
             <Heart
-              className={`w-5 h-5 ${
+              className={`w-5 h-5 transition-all duration-100 ${
                 hasCoSigned ? 'text-[#F36C5B] fill-[#F36C5B]' : 'text-[#5E5E5E]'
               }`}
+              style={
+                hasCoSigned
+                  ? { filter: 'drop-shadow(0 0 4px rgba(243, 108, 91, 0.33))' }
+                  : undefined
+              }
             />
-            <span className="text-sm font-bold lowercase">
+            <span className={`text-sm font-bold lowercase ${hasCoSigned ? 'opacity-70' : ''}`}>
               {coSigning ? 'signing...' : hasCoSigned ? 'co-signed 💫' : 'co-sign'}
             </span>
           </button>
@@ -409,6 +385,69 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
           </button>
         </div>
       </div>
+
+      {/* Tip Modal - Portal Overlay */}
+      {showTipAmounts && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{
+            background: 'rgba(236, 236, 236, 0.6)',
+            backdropFilter: 'blur(12px)',
+          }}
+          onClick={() => setShowTipAmounts(false)}
+        >
+          <div
+            className="panel-surface p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold text-[#2E2E2E] mb-4 text-center lowercase">
+              tip amount (usdc)
+            </h3>
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {tipAmounts.map((amount) => (
+                <button
+                  key={amount}
+                  onClick={() => handleTip(amount)}
+                  disabled={tipping}
+                  className="btn-neomorph px-6 py-4 font-bold disabled:opacity-50"
+                >
+                  ${amount}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div className="relative">
+                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#5E5E5E] opacity-50" />
+                <input
+                  type="number"
+                  value={customAmount}
+                  onChange={(e) => setCustomAmount(e.target.value)}
+                  placeholder="custom amount"
+                  min="1"
+                  step="1"
+                  className="input-shell w-full !pl-12"
+                />
+              </div>
+              <button
+                onClick={() => customAmount && handleTip(Number(customAmount))}
+                disabled={!customAmount || tipping}
+                className="btn-neomorph w-full disabled:opacity-50 lowercase"
+              >
+                {tipping ? 'processing...' : 'send tip'}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowTipAmounts(false)}
+              className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase"
+            >
+              cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

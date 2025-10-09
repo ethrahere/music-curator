@@ -35,19 +35,8 @@ function PlayPageContent() {
   };
 
   const handleTip = async (id: string) => {
-    try {
-      const response = await fetch(`/api/tracks/${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'tip' }),
-      });
-      const data = await response.json();
-      if (data.success && data.track) {
-        setTrack(data.track);
-      }
-    } catch (error) {
-      console.error('Failed to tip track:', error);
-    }
+    // Player component manages its own tip state, no need to update here
+    // This prevents unnecessary re-renders
   };
 
   const handleClose = () => {
