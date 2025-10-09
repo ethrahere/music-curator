@@ -59,6 +59,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+      fid: user.farcaster_fid,
       stats: {
         tracksShared: tracksShared || 0,
         followers,

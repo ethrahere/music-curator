@@ -196,23 +196,22 @@ export default function CuratorPage() {
           <div className="flex items-center gap-2 mb-4">
             <Award className="w-5 h-5 text-[#7fd4a8]" />
             <h3 className="text-lg font-bold text-[#0b1a12]">Badges</h3>
+            <span className="px-3 py-1 rounded-full bg-white/40 text-[#2d4a3a] text-xs font-semibold">
+              Coming Soon
+            </span>
           </div>
           <div className="flex flex-wrap gap-3">
             {/* Placeholder badges - will be dynamic later */}
-            <div className="px-4 py-2 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] text-sm font-semibold flex items-center gap-2">
+            <div className="px-4 py-2 rounded-full bg-white/40 text-[#2d4a3a] text-sm font-semibold opacity-50 flex items-center gap-2">
               <Award className="w-4 h-4" />
               Early Curator
             </div>
-            {curator.stats.tracksShared > 0 && (
-              <div className="px-4 py-2 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] text-sm font-semibold">
-                🎵 First Share
-              </div>
-            )}
-            {curator.stats.tipsEarned > 0 && (
-              <div className="px-4 py-2 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] text-[#0b1a12] text-sm font-semibold">
-                💰 First Tip
-              </div>
-            )}
+            <div className="px-4 py-2 rounded-full bg-white/40 text-[#2d4a3a] text-sm font-semibold opacity-50">
+              🎵 First Share
+            </div>
+            <div className="px-4 py-2 rounded-full bg-white/40 text-[#2d4a3a] text-sm font-semibold opacity-50">
+              💰 First Tip
+            </div>
           </div>
         </div>
 

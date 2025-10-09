@@ -87,8 +87,7 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
       // Only proceed if the transaction was successful
       if (!result.success) {
         console.log('Tip cancelled or failed:', result.reason);
-        // User cancelled or transaction failed - don't show error, just reset
-        setTipping(false);
+        // User cancelled or transaction failed - reset state immediately
         return;
       }
 
@@ -129,6 +128,7 @@ export default function Player({ track, onClose, onTip, baseUrl, playlist, curre
       console.error('Failed to tip:', error);
       // Don't show error to user, just log it
     } finally {
+      // Always reset tipping state
       setTipping(false);
     }
   };
