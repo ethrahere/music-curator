@@ -11,7 +11,7 @@ export async function GET(
   try {
     const { data, error } = await supabase
       .from('recommendations')
-      .select('*, users!recommendations_curator_fid_fkey(farcaster_fid, username)')
+      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score)')
       .eq('id', id)
       .single();
 
@@ -31,8 +31,9 @@ export async function GET(
       embedUrl: data.embed_url || '',
       tips: data.total_tips_usd || 0,
       sharedBy: {
-        fid: data.users?.farcaster_fid || 0,
-        username: data.users?.username || data.curator_address,
+        fid: data.curator?.farcaster_fid || 0,
+        username: data.curator?.username || 'unknown',
+        curatorScore: data.curator?.curator_score || 0,
       },
       timestamp: new Date(data.created_at).getTime(),
     };
@@ -69,7 +70,7 @@ export async function POST(
         .from('recommendations')
         .update({ tip_count: currentData.tip_count + 1 })
         .eq('id', id)
-        .select('*, users!recommendations_curator_fid_fkey(farcaster_fid, username)')
+        .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score)')
         .single();
 
       if (error || !data) {
@@ -87,8 +88,9 @@ export async function POST(
         embedUrl: data.embed_url || '',
         tips: data.total_tips_usd || 0,
         sharedBy: {
-          fid: data.users?.farcaster_fid || 0,
-          username: data.users?.username || data.curator_address,
+          fid: data.curator?.farcaster_fid || 0,
+          username: data.curator?.username || 'unknown',
+          curatorScore: data.curator?.curator_score || 0,
         },
         timestamp: new Date(data.created_at).getTime(),
       };
