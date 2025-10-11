@@ -11,11 +11,12 @@ export async function GET(
   try {
     const { data, error } = await supabase
       .from('recommendations')
-      .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)')
+      .select('*, users!recommendations_curator_fid_fkey(farcaster_fid, username)')
       .eq('id', id)
       .single();
 
     if (error || !data) {
+      console.error('Error fetching track:', error);
       return NextResponse.json({ error: 'Track not found' }, { status: 404 });
     }
 
@@ -68,7 +69,7 @@ export async function POST(
         .from('recommendations')
         .update({ tip_count: currentData.tip_count + 1 })
         .eq('id', id)
-        .select('*, users!recommendations_curator_address_fkey(farcaster_fid, username)')
+        .select('*, users!recommendations_curator_fid_fkey(farcaster_fid, username)')
         .single();
 
       if (error || !data) {

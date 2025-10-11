@@ -44,16 +44,14 @@ export async function getLocationContext() {
 // Share track to Farcaster feed
 export async function shareToFarcaster(trackUrl: string, text?: string, imageUrl?: string) {
   try {
-    const sanitizedImage = imageUrl && /^https?:\/\//.test(imageUrl) ? imageUrl : undefined;
-    const embeds: [string] | [string, string] = sanitizedImage
-      ? [trackUrl, sanitizedImage]
-      : [trackUrl];
+    // Only embed the track URL, not the image
+    // The track page's Open Graph metadata will provide the image
+    const embeds: [string] = [trackUrl];
 
     console.log('shareToFarcaster called with:', {
       trackUrl,
       text,
       imageUrl,
-      sanitizedImage,
       embeds
     });
 
