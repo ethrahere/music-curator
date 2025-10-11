@@ -57,10 +57,14 @@ export async function shareToFarcaster(trackUrl: string, text?: string, imageUrl
       embeds
     });
 
-    await sdk.actions.composeCast({
+    const castPayload = {
       text: text || '',
       embeds,
-    });
+    };
+
+    console.log('Calling composeCast with:', JSON.stringify(castPayload, null, 2));
+
+    await sdk.actions.composeCast(castPayload);
     return true;
   } catch (error) {
     console.error('Failed to share to Farcaster:', error);

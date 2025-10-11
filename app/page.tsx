@@ -148,6 +148,13 @@ export default function Home() {
       };
 
       // Save track with optional fields
+      console.log('Submitting track:', {
+        url: track.url,
+        artwork: track.artwork,
+        embedUrl: track.embedUrl,
+        title: track.title
+      });
+
       const response = await fetch('/api/tracks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,6 +167,12 @@ export default function Home() {
       });
 
       const data = await response.json();
+
+      console.log('API response:', {
+        success: data.success,
+        trackId: data.track?.id,
+        fullTrack: data.track
+      });
 
       if (data.success && data.track) {
         // Share to Farcaster using DB-generated ID
