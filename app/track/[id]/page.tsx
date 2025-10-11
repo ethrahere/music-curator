@@ -53,6 +53,7 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
       openGraph: {
         title: data.song_title,
         description: `by ${data.artist}`,
+        url: `${baseUrl}/track/${id}`,
         images: [
           {
             url: artwork3x2,
@@ -68,6 +69,9 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
         title: data.song_title,
         description: `by ${data.artist}`,
         images: [artwork3x2],
+      },
+      alternates: {
+        canonical: `${baseUrl}/track/${id}`,
       },
       other: {
         'fc:miniapp': JSON.stringify(miniAppMetadata),
