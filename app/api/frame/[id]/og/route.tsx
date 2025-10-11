@@ -23,11 +23,13 @@ interface CuratorScore {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    const logoUrl = new URL('/curio.svg', req.nextUrl.origin).toString(); // @vercel/og requires absolute image URLs
 
     // Fetch track data
     const { data: track, error: trackError } = await supabase
@@ -375,7 +377,7 @@ export async function GET(
               }}
             >
               <img
-                src="/curio.svg"
+                src={logoUrl}
                 width="120"
                 height="38"
                 style={{
