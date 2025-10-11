@@ -166,6 +166,13 @@ export default function Home() {
         const baseUrl = resolveShareBaseUrl();
         const trackUrl = `${baseUrl}/track/${data.track.id}`;
 
+        console.log('Sharing to Farcaster with:', {
+          baseUrl,
+          trackId: data.track.id,
+          trackUrl,
+          artwork: data.track.artwork
+        });
+
         // Build cast text with optional review
         let castText = `🎵 ${data.track.title} - ${data.track.artist}`;
         if (review && review.trim()) {

@@ -49,6 +49,14 @@ export async function shareToFarcaster(trackUrl: string, text?: string, imageUrl
       ? [trackUrl, sanitizedImage]
       : [trackUrl];
 
+    console.log('shareToFarcaster called with:', {
+      trackUrl,
+      text,
+      imageUrl,
+      sanitizedImage,
+      embeds
+    });
+
     await sdk.actions.composeCast({
       text: text || '',
       embeds,
