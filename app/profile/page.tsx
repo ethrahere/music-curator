@@ -118,22 +118,25 @@ export default function ProfilePage() {
     <div className="min-h-screen pb-8">
       {/* Header */}
       <header className="sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 py-3">
-          <div className="panel-surface px-4 py-3">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push('/')}
-                className="flex-shrink-0 hover:opacity-80 transition-opacity"
-              >
-                <ArrowLeft className="w-6 h-6 text-[#0b1a12]" />
-              </button>
-              <h1 className="text-lg font-bold text-[#0b1a12]">Profile</h1>
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="panel-surface px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => router.push('/')}
+                  className="flex-shrink-0 hover:opacity-80 transition-opacity"
+                >
+                  <ArrowLeft className="w-6 h-6 text-[#0b1a12]" />
+                </button>
+                <h1 className="text-lg font-bold text-[#0b1a12]">Profile</h1>
+              </div>
+              <div className="w-6 h-6 opacity-0 pointer-events-none" />
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 mt-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 pt-4 space-y-6">
         {/* User Info Card */}
         <div className="panel-surface p-6">
           <div className="flex items-start gap-4 mb-6">
