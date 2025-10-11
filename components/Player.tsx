@@ -218,7 +218,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
       </header>
 
       {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-auto px-4 pt-6 pb-24">
+      <div className="flex-1 overflow-auto px-4 pt-2 pb-24">
         <div className="max-w-2xl mx-auto">
           {/* TrackCard */}
           <div className="panel-surface overflow-hidden mb-6">

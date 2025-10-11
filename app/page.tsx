@@ -151,7 +151,7 @@ export default function Home() {
           castText = `${review}\n\n🎵 ${data.track.title} - ${data.track.artist}`;
         }
 
-        await shareToFarcaster(trackUrl, castText);
+        await shareToFarcaster(trackUrl, castText, data.track.artwork);
 
         // Refresh tracks with current filter
         setPage(1);

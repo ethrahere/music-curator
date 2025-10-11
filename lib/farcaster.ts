@@ -42,11 +42,16 @@ export async function getLocationContext() {
 }
 
 // Share track to Farcaster feed
-export async function shareToFarcaster(trackUrl: string, text?: string) {
+export async function shareToFarcaster(trackUrl: string, text?: string, imageUrl?: string) {
   try {
+    const sanitizedImage = imageUrl && /^https?:\/\//.test(imageUrl) ? imageUrl : undefined;
+    const embeds: [string] | [string, string] = sanitizedImage
+      ? [trackUrl, sanitizedImage]
+      : [trackUrl];
+
     await sdk.actions.composeCast({
       text: text || '',
-      embeds: [trackUrl],
+      embeds,
     });
     return true;
   } catch (error) {

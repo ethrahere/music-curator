@@ -27,11 +27,9 @@ export async function generateMetadata({ params }: TrackPageProps): Promise<Meta
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://music-curator.vercel.app';
-    const originalArtwork = data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music';
 
-    // Generate 3:2 aspect ratio image URL with platform
-    const platform = data.platform || 'music';
-    const artwork3x2 = `${baseUrl}/api/og-image?url=${encodeURIComponent(originalArtwork)}&title=${encodeURIComponent(data.song_title)}&artist=${encodeURIComponent(data.artist)}&platform=${encodeURIComponent(platform)}`;
+    // Use new Curio Digital Radio style OG image
+    const artwork3x2 = `${baseUrl}/api/frame/${id}/og`;
 
     // Generate Mini App metadata (image must be 3:2 aspect ratio)
     const miniAppMetadata = {
