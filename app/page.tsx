@@ -112,6 +112,27 @@ export default function Home() {
       // Get user context
       const user = await getUserContext();
 
+      const resolveShareBaseUrl = () => {
+        // Prefer a deploy URL so casts never point at localhost when sharing from dev
+        const fallback = 'https://music-curator.vercel.app';
+        const envUrl = process.env.NEXT_PUBLIC_BASE_URL;
+        const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
+
+        const candidates = [envUrl, runtimeOrigin, fallback];
+        for (const candidate of candidates) {
+          if (!candidate) continue;
+          try {
+            const parsed = new URL(candidate);
+            if (!/localhost|127\.0\.0\.1/.test(parsed.hostname)) {
+              return parsed.origin;
+            }
+          } catch (error) {
+            // Ignore malformed URLs and try the next candidate
+          }
+        }
+        return fallback;
+      };
+
       // Create track
       const track: MusicTrack = {
         id: Date.now().toString(),
@@ -142,7 +163,7 @@ export default function Home() {
 
       if (data.success && data.track) {
         // Share to Farcaster using DB-generated ID
-        const baseUrl = window.location.origin;
+        const baseUrl = resolveShareBaseUrl();
         const trackUrl = `${baseUrl}/track/${data.track.id}`;
 
         // Build cast text with optional review
