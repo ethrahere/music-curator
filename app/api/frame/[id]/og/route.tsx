@@ -4,6 +4,9 @@ import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
+// Enable revalidation every 24 hours
+export const revalidate = 86400;
+
 interface TrackData {
   id: string;
   song_title: string;
@@ -29,48 +32,42 @@ export async function GET(
   try {
     const { id } = await params;
 
-    const logoUrl = new URL('/curio.svg', req.nextUrl.origin).toString(); // @vercel/og requires absolute image URLs
+    const logoUrl = new URL('/curio.svg', req.nextUrl.origin).toString();
     const starUrl = new URL('/star.png', req.nextUrl.origin).toString();
 
-    // Fetch track data
-    const { data: track, error: trackError } = await supabase
-      .from('recommendations')
-      .select('id, song_title, artist, curator_fid, artwork_url, review')
-      .eq('id', id)
-      .single();
+    // Optimize: Fetch all data in parallel with a single query using join
+    const [trackResult, communityResult] = await Promise.all([
+      supabase
+        .from('recommendations')
+        .select(`
+          id,
+          song_title,
+          artist,
+          artwork_url,
+          review,
+          curator:users!curator_fid(username, farcaster_pfp_url, curator_score)
+        `)
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('users')
+        .select('farcaster_pfp_url')
+        .not('farcaster_pfp_url', 'is', null)
+        .limit(5)
+    ]);
 
-    if (trackError || !track)
+    if (trackResult.error || !trackResult.data)
       return new Response('Track not found', { status: 404 });
-    const t = track as TrackData;
 
-    // Fetch curator data
-    const { data: curator, error: curatorError} = await supabase
-      .from('users')
-      .select('username, farcaster_pfp_url')
-      .eq('farcaster_fid', t.curator_fid)
-      .single();
+    const t = trackResult.data;
+    // Handle curator data - Supabase JOIN returns array or object depending on relationship
+    const curator = Array.isArray(t.curator) ? t.curator[0] : t.curator;
 
-    if (curatorError || !curator)
+    if (!curator)
       return new Response('Curator not found', { status: 404 });
-    const c = curator as CuratorData;
 
-    // Fetch curator score separately
-    const { data: scoreData } = await supabase
-      .from('users')
-      .select('curator_score')
-      .eq('farcaster_fid', t.curator_fid)
-      .single();
-
-    const curatorScore = (scoreData as CuratorScore)?.curator_score || 0;
-
-    // Fetch community PFPs for "share your taste" button
-    const { data: communityUsers } = await supabase
-      .from('users')
-      .select('farcaster_pfp_url')
-      .not('farcaster_pfp_url', 'is', null)
-      .limit(6);
-
-    const communityPfps = communityUsers?.map(u => u.farcaster_pfp_url).filter(Boolean) || [];
+    const curatorScore = curator.curator_score || 0;
+    const communityPfps = communityResult.data?.map(u => u.farcaster_pfp_url).filter(Boolean) || [];
 
     // ---------- LAYOUT ----------
     const CANVAS_W = 1200;
@@ -85,11 +82,10 @@ export async function GET(
             background: '#ECECEC',
             display: 'flex',
             flexDirection: 'column',
-            fontFamily:
-              'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, sans-serif',
+            fontFamily: 'DM Sans, system-ui, -apple-system, sans-serif',
             position: 'relative',
             padding: '40px',
-            gap: '28px',
+            gap: '24px',
           }}
         >
           {/* Live Indicator */}
@@ -135,7 +131,7 @@ export async function GET(
           <div
             style={{
               display: 'flex',
-              gap: '28px',
+              gap: '24px',
               height: '460px',
             }}
           >
@@ -153,8 +149,8 @@ export async function GET(
                   width: '100%',
                   height: '100%',
                   background: '#F6F6F6',
-                  borderRadius: '24px',
-                  boxShadow: '12px 12px 24px #d0d0d0, -12px -12px 24px #ffffff',
+                  borderRadius: '18px',
+                  boxShadow: '8px 8px 16px #d0d0d0, -8px -8px 16px #ffffff',
                   overflow: 'hidden',
                   position: 'relative',
                   display: 'flex',
@@ -199,7 +195,7 @@ export async function GET(
               <div
                 style={{
                   background: '#F6F6F6',
-                  borderRadius: '24px',
+                  borderRadius: '18px',
                   boxShadow: '8px 8px 16px #d0d0d0, -8px -8px 16px #ffffff',
                   padding: '44px 40px',
                   display: 'flex',
@@ -257,7 +253,7 @@ export async function GET(
           <div
             style={{
               background: '#F6F6F6',
-              borderRadius: '24px',
+              borderRadius: '18px',
               boxShadow: '8px 8px 16px #d0d0d0, -8px -8px 16px #ffffff',
               padding: '32px 36px',
               display: 'flex',
@@ -282,9 +278,9 @@ export async function GET(
                 boxShadow: '4px 4px 8px rgba(0,0,0,0.1)',
               }}
             >
-              {c.farcaster_pfp_url ? (
+              {curator.farcaster_pfp_url ? (
                 <img
-                  src={c.farcaster_pfp_url}
+                  src={curator.farcaster_pfp_url}
                   width="80"
                   height="80"
                   style={{
@@ -295,7 +291,7 @@ export async function GET(
                   }}
                 />
               ) : (
-                (c.username || 'C')[0].toUpperCase()
+                (curator.username || 'C')[0].toUpperCase()
               )}
             </div>
             <div
@@ -327,14 +323,14 @@ export async function GET(
                   display: 'flex',
                 }}
               >
-                @{c.username}
+                @{curator.username}
               </div>
             </div>
             <div
               style={{
-                background: 'rgba(211, 234, 169, 0.25)',
+                background: 'rgba(152, 239, 86, 0.15)',
                 padding: '14px 24px',
-                borderRadius: '24px',
+                borderRadius: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '10px',
@@ -342,7 +338,7 @@ export async function GET(
                 fontWeight: 700,
                 color: '#2E2E2E',
                 flexShrink: 0,
-                boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.08)',
+                boxShadow: '3px 3px 6px #d0d0d0, -3px -3px 6px #ffffff',
               }}
             >
               <img
@@ -362,7 +358,7 @@ export async function GET(
           <div
             style={{
               display: 'flex',
-              gap: '28px',
+              gap: '24px',
               height: '90px',
             }}
           >
@@ -375,7 +371,7 @@ export async function GET(
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '21px 24px',
+                padding: '21px 34px',
               }}
             >
               <div
@@ -450,7 +446,8 @@ export async function GET(
         width: CANVAS_W,
         height: CANVAS_H,
         headers: {
-          'Cache-Control': 'public, max-age=3600',
+          'Content-Type': 'image/png',
+          'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800',
         },
       }
     );
