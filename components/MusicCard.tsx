@@ -14,14 +14,14 @@ interface MusicCardProps {
 
 export default function MusicCard({ track, onPlay, onTip, isPlaying = false }: MusicCardProps) {
   return (
-    <div className="panel-surface card-tactile overflow-hidden cursor-pointer group relative">
+    <div className="panel-surface card-tactile overflow-hidden cursor-pointer group relative" onClick={() => onPlay(track)}>
       {/* LED Playing Indicator */}
       {isPlaying && (
         <div className="absolute top-4 right-4 z-10 led-dot"></div>
       )}
 
       {/* Artwork with rounded bezel shadow */}
-      <div className="aspect-[3/2] relative" onClick={() => onPlay(track)}>
+      <div className="aspect-[3/2] relative">
         <div className="absolute inset-0 rounded-t-[18px] overflow-hidden">
           <Image
             src={track.artwork}

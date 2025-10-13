@@ -65,12 +65,14 @@ export async function POST(request: NextRequest) {
     const track: MusicTrack = body;
     const curatorFid = track.sharedBy.fid;
     const curatorUsername = track.sharedBy.username || 'anonymous';
+    const curatorPfpUrl = track.sharedBy.pfpUrl;
 
     console.log('Received track data:', {
       review: body.review,
       genre: body.genre,
       moods: body.moods,
       curatorFid,
+      curatorPfpUrl,
     });
 
     // Ensure user exists in users table (upsert)
@@ -79,6 +81,7 @@ export async function POST(request: NextRequest) {
       .upsert({
         farcaster_fid: curatorFid,
         username: curatorUsername,
+        farcaster_pfp_url: curatorPfpUrl,
       }, {
         onConflict: 'farcaster_fid',
         ignoreDuplicates: false

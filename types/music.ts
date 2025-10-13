@@ -13,6 +13,7 @@ export interface MusicTrack {
     fid: number;
     username: string;
     curatorScore?: number;
+    pfpUrl?: string;
   };
   timestamp: number;
   review?: string;

@@ -30,6 +30,7 @@ export async function GET(
     const { id } = await params;
 
     const logoUrl = new URL('/curio.svg', req.nextUrl.origin).toString(); // @vercel/og requires absolute image URLs
+    const starUrl = new URL('/star.png', req.nextUrl.origin).toString();
 
     // Fetch track data
     const { data: track, error: trackError } = await supabase
@@ -62,6 +63,15 @@ export async function GET(
 
     const curatorScore = (scoreData as CuratorScore)?.curator_score || 0;
 
+    // Fetch community PFPs for "share your taste" button
+    const { data: communityUsers } = await supabase
+      .from('users')
+      .select('farcaster_pfp_url')
+      .not('farcaster_pfp_url', 'is', null)
+      .limit(6);
+
+    const communityPfps = communityUsers?.map(u => u.farcaster_pfp_url).filter(Boolean) || [];
+
     // ---------- LAYOUT ----------
     const CANVAS_W = 1200;
     const CANVAS_H = 800;
@@ -79,7 +89,7 @@ export async function GET(
               'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, sans-serif',
             position: 'relative',
             padding: '40px',
-            gap: '20px',
+            gap: '28px',
           }}
         >
           {/* Live Indicator */}
@@ -125,7 +135,7 @@ export async function GET(
           <div
             style={{
               display: 'flex',
-              gap: '20px',
+              gap: '28px',
               height: '460px',
             }}
           >
@@ -253,20 +263,20 @@ export async function GET(
               display: 'flex',
               alignItems: 'center',
               gap: '24px',
-              flex: 1,
+              height: '128px',
             }}
           >
             <div
               style={{
-                width: '64px',
-                height: '64px',
+                width: '80px',
+                height: '80px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #F36C5B 0%, #B8E1C2 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'white',
-                fontSize: '28px',
+                fontSize: '36px',
                 fontWeight: 700,
                 flexShrink: 0,
                 boxShadow: '4px 4px 8px rgba(0,0,0,0.1)',
@@ -275,13 +285,13 @@ export async function GET(
               {c.farcaster_pfp_url ? (
                 <img
                   src={c.farcaster_pfp_url}
-                  width="64"
-                  height="64"
+                  width="80"
+                  height="80"
                   style={{
                     borderRadius: '50%',
                     objectFit: 'cover',
-                    width: '64px',
-                    height: '64px',
+                    width: '80px',
+                    height: '80px',
                   }}
                 />
               ) : (
@@ -301,7 +311,7 @@ export async function GET(
                   color: '#5E5E5E',
                   textTransform: 'uppercase',
                   letterSpacing: '0.08em',
-                  marginBottom: '6px',
+                  marginBottom: '2px',
                   display: 'flex',
                 }}
               >
@@ -322,20 +332,28 @@ export async function GET(
             </div>
             <div
               style={{
-                background: 'rgba(239, 191, 86, 0.25)',
-                padding: '10px 18px',
-                borderRadius: '20px',
+                background: 'rgba(211, 234, 169, 0.25)',
+                padding: '14px 24px',
+                borderRadius: '24px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontSize: '24px',
+                gap: '10px',
+                fontSize: '28px',
                 fontWeight: 700,
                 color: '#2E2E2E',
                 flexShrink: 0,
                 boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.08)',
               }}
             >
-              <span>⭐</span>
+              <img
+                src={starUrl}
+                width="40"
+                height="40"
+                style={{
+                  width: '40px',
+                  height: '40px',
+                }}
+              />
               <span>{curatorScore}</span>
             </div>
           </div>
@@ -344,8 +362,8 @@ export async function GET(
           <div
             style={{
               display: 'flex',
-              gap: '16px',
-              height: '80px',
+              gap: '28px',
+              height: '90px',
             }}
           >
             <div
@@ -356,14 +374,54 @@ export async function GET(
                 boxShadow: '6px 6px 12px #d0d0d0, -6px -6px 12px #ffffff',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '18px',
-                fontWeight: 500,
-                color: '#5E5E5E',
-                letterSpacing: '0.01em',
+                justifyContent: 'space-between',
+                padding: '21px 24px',
               }}
             >
-              → share your taste
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                }}
+              >
+                {communityPfps.slice(0, 5).map((pfp, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '50%',
+                      overflow: 'hidden',
+                      border: '2px solid #F6F6F6',
+                      marginLeft: i > 0 ? '-14px' : '0',
+                      display: 'flex',
+                    }}
+                  >
+                    <img
+                      src={pfp}
+                      width="48"
+                      height="48"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 500,
+                  color: '#5E5E5E',
+                  letterSpacing: '0.01em',
+                  display: 'flex',
+                }}
+              >
+                → share your taste
+              </div>
             </div>
             <div
               style={{
