@@ -179,8 +179,8 @@ export default function CuratorPage() {
 
             <div className="bg-white/40 rounded-xl p-4 text-center">
               <DollarSign className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
-              <div className="text-2xl font-bold text-[#0b1a12]">${curator.stats.tipsEarned}</div>
-              <div className="text-xs text-[#2d4a3a]">Tips Earned</div>
+              <div className="text-2xl font-bold text-[#0b1a12]">${curator.stats.tipsEarned.toFixed(2)}</div>
+              <div className="text-xs text-[#2d4a3a]">USDC Earned</div>
             </div>
 
             <div className="bg-white/40 rounded-xl p-4 text-center">

@@ -1,4 +1,5 @@
 import { MusicMetadata, MusicPlatform } from '@/types/music';
+import { DEFAULT_ARTWORK_URL } from './constants';
 
 // Extract YouTube video ID from various URL formats
 function extractYouTubeId(url: string): string | null {
@@ -138,7 +139,7 @@ export async function extractMusicMetadata(url: string): Promise<MusicMetadata> 
   return {
     title: metadata.title || 'Unknown Track',
     artist: metadata.artist || 'Unknown Artist',
-    artwork: metadata.artwork || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
+    artwork: metadata.artwork || DEFAULT_ARTWORK_URL,
     embedUrl,
     platform,
   };

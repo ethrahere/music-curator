@@ -76,7 +76,7 @@ export default function MusicCard({ track, onPlay, onTip, isPlaying = false }: M
           {onTip && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECECEC] flex-shrink-0">
               <span className="mono-number text-[0.7rem] text-[#EFBF56]">
-                ${track.tips || 0}
+                ${(track.tips || 0).toFixed(2)}
               </span>
             </div>
           )}

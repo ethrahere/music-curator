@@ -1,34 +1,36 @@
 {
-    "frame": {
-      "name": "Curio",
-      "version": "1",
-      "iconUrl": "https://music-curator.vercel.app/curio-logo.png",
-      "homeUrl": "https://music-curator.vercel.app",
-      "imageUrl": "https://music-curator.vercel.app/image-url.png",
-      "buttonTitle": "Discover and Curate Good Music",
-      "splashImageUrl": "https://music-curator.vercel.app/curio-logo.png",
-      "splashBackgroundColor": "#F6F6F6",
-      "subtitle": "Rewarding Music Curation",
-      "description": "Rewarding Music Curation",
-      "primaryCategory": "music",
-      "tags": [
-        "music",
-        "social",
-        "discovery",
-        "curation"
-      ],
-      "heroImageUrl": "https://music-curator.vercel.app/curio.png",
-      "tagline": "Rewarding Music Curation",
-      "ogTitle": "Curio - Rewarding music taste",
-      "ogDescription": "Curate music and earn rewards",
-      "ogImageUrl": "https://music-curator.vercel.app/image-url.png"
-    },
-        "accountAssociation": {
-          "header": "eyJmaWQiOjEwMDEzMTMsInR5cGUiOiJhdXRoIiwia2V5IjoiMHgxYzA3QTI1NjcyZTkwODM2QzhENGJkOTQzZmY2ZDIwNkJFNTc5OEYzIn0",
-          "payload": "eyJkb21haW4iOiJtdXNpYy1jdXJhdG9yLnZlcmNlbC5hcHAifQ",
-          "signature": "gmJWuML38QY1X7My5nXh275zQPvWxq+MMNbxnu6G3AcSdSqV7B2+7SbCPglJKGWlp/OEkjiccOIucGxr0De0MBs="
-        },
-        "baseBuilder": {
-          "allowedAddresses": ["0xB435c073fB086C03D48F4C36b31d32BEe94cC0d1"]
-        }
+  "frame": {
+    "name": "Curio",
+    "version": "1",
+    "iconUrl": "https://music-curator.vercel.app/curio-logo.png",
+    "homeUrl": "https://music-curator.vercel.app",
+    "imageUrl": "https://music-curator.vercel.app/image-url.png",
+    "buttonTitle": "Discover and Curate Good Music",
+    "splashImageUrl": "https://music-curator.vercel.app/curio-logo.png",
+    "splashBackgroundColor": "#F6F6F6",
+    "subtitle": "Rewarding Music Curation",
+    "description": "Rewarding Music Curation",
+    "primaryCategory": "music",
+    "tags": [
+      "music",
+      "social",
+      "discovery",
+      "curation"
+    ],
+    "heroImageUrl": "https://music-curator.vercel.app/curio.png",
+    "tagline": "Rewarding Music Curation",
+    "ogTitle": "Curio - Rewarding music taste",
+    "ogDescription": "Curate music and earn rewards",
+    "ogImageUrl": "https://music-curator.vercel.app/image-url.png"
+  },
+  "accountAssociation": {
+    "header": "eyJmaWQiOjEwMDEzMTMsInR5cGUiOiJhdXRoIiwia2V5IjoiMHgxYzA3QTI1NjcyZTkwODM2QzhENGJkOTQzZmY2ZDIwNkJFNTc5OEYzIn0",
+    "payload": "eyJkb21haW4iOiJtdXNpYy1jdXJhdG9yLnZlcmNlbC5hcHAifQ",
+    "signature": "gmJWuML38QY1X7My5nXh275zQPvWxq+MMNbxnu6G3AcSdSqV7B2+7SbCPglJKGWlp/OEkjiccOIucGxr0De0MBs="
+  },
+  "baseBuilder": {
+    "allowedAddresses": [
+      "0xB435c073fB086C03D48F4C36b31d32BEe94cC0d1"
+    ]
+  }
 }

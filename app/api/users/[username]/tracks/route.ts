@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { MusicTrack } from '@/types/music';
+import { DEFAULT_ARTWORK_URL } from '@/lib/constants';
 
 const getSupabase = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -60,7 +61,7 @@ export async function GET(
       platform: rec.platform || 'other',
       title: rec.song_title,
       artist: rec.artist,
-      artwork: rec.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
+      artwork: rec.artwork_url || DEFAULT_ARTWORK_URL,
       embedUrl: rec.embed_url || '',
       tips: rec.total_tips_usd || 0,
       sharedBy: {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { WagmiProvider } from "@/components/WagmiProvider";
 
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
@@ -70,7 +71,9 @@ export default function RootLayout({
       <body
         className={`${dmSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <WagmiProvider>
+          {children}
+        </WagmiProvider>
       </body>
     </html>
   );

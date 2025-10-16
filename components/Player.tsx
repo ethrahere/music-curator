@@ -7,6 +7,20 @@ import Link from 'next/link';
 import { getUserContext } from '@/lib/farcaster';
 import sdk from '@farcaster/frame-sdk';
 import { useState, useEffect } from 'react';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { parseUnits, erc20Abi, type Address } from 'viem';
+import {
+  USDC_ADDRESS,
+  USDC_TOKEN_ID,
+  ETH_TOKEN_ID,
+  USDC_DECIMALS,
+  ETH_DECIMALS,
+  ETH_USD_ESTIMATE,
+  SWAP_BUFFER_PERCENT,
+  DEFAULT_TIP_AMOUNTS,
+  TOAST_DURATION,
+  TIP_SUCCESS_DURATION,
+} from '@/lib/constants';
 
 interface PlayerProps {
   track: MusicTrack;
@@ -25,7 +39,6 @@ interface Toast {
 }
 
 export default function Player({ track, onClose, onTip }: PlayerProps) {
-  const [tipping, setTipping] = useState(false);
   const [coSigning, setCoSigning] = useState(false);
   const [hasCoSigned, setHasCoSigned] = useState(false);
   const [showTipAmounts, setShowTipAmounts] = useState(false);
@@ -34,8 +47,26 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
   const [coSignCount, setCoSignCount] = useState(0);
   const [localTipTotal, setLocalTipTotal] = useState(track.tips || 0);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [curatorAddress, setCuratorAddress] = useState<string | null>(null);
+  const [showSwapPrompt, setShowSwapPrompt] = useState(false);
+  const [pendingTipAmount, setPendingTipAmount] = useState(0);
 
-  const tipAmounts = [1, 5, 10];
+  const { address } = useAccount();
+  const { writeContract, data: hash, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // Read user's USDC balance using high-level wagmi hook
+  const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
+    address: USDC_ADDRESS,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: {
+      enabled: !!address,
+    },
+  });
+
+  const tipAmounts = DEFAULT_TIP_AMOUNTS;
 
   // Toast system
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -43,8 +74,24 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
     setToasts(prev => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 2000);
+    }, TOAST_DURATION);
   };
+
+  // Fetch curator's wallet address
+  useEffect(() => {
+    const fetchCuratorAddress = async () => {
+      try {
+        const response = await fetch(`/api/users/${track.sharedBy.fid}/address`);
+        const data = await response.json();
+        if (data.success && data.primaryAddress) {
+          setCuratorAddress(data.primaryAddress);
+        }
+      } catch (error) {
+        console.error('Failed to fetch curator address:', error);
+      }
+    };
+    fetchCuratorAddress();
+  }, [track.sharedBy.fid]);
 
   // Check if user has already co-signed this track
   useEffect(() => {
@@ -108,32 +155,110 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
   };
 
 
+  // Check USDC balance before tipping (high-level, using wagmi)
+  const checkUSDCBalance = async (amount: number): Promise<boolean> => {
+    if (!address || !usdcBalance) {
+      showToast('Unable to check balance', 'error');
+      return false;
+    }
+
+    const amountNeeded = parseUnits(amount.toString(), USDC_DECIMALS);
+
+    if (usdcBalance < amountNeeded) {
+      setShowSwapPrompt(true);
+      setPendingTipAmount(amount);
+      return false;
+    }
+
+    return true;
+  };
+
   const handleTip = async (amount: number) => {
-    setTipping(true);
+    if (!curatorAddress) {
+      showToast('Curator address not found', 'error');
+      return;
+    }
+
+    // Check balance first
+    const hasBalance = await checkUSDCBalance(amount);
+    if (!hasBalance) return;
+
+    setPendingTipAmount(amount);
+
+    const amountInUSDC = parseUnits(amount.toString(), USDC_DECIMALS);
+
+    // Direct USDC transfer - user CANNOT change token (using high-level erc20Abi)
+    writeContract({
+      address: USDC_ADDRESS,
+      abi: erc20Abi,
+      functionName: 'transfer',
+      args: [curatorAddress as Address, amountInUSDC],
+    });
+  };
+
+  // Handle swap to USDC - swaps exact amount needed for tip
+  const handleSwap = async () => {
     try {
-      const tipper = await getUserContext();
-      const curatorFid = track.sharedBy.fid;
-
-      const result = await sdk.actions.sendToken({
-        token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
-        amount: (amount * 1000000).toString(),
-        recipientFid: curatorFid,
-      });
-
-      if (!result.success) {
-        console.log('Tip cancelled or failed:', result.reason);
-        setTipping(false);
+      if (pendingTipAmount <= 0) {
+        showToast('Invalid tip amount', 'error');
         return;
       }
+
+      // Calculate how much USDC is needed
+      const currentBalance = usdcBalance || BigInt(0);
+      const amountNeeded = parseUnits(pendingTipAmount.toString(), USDC_DECIMALS);
+      const shortfall = amountNeeded - currentBalance;
+
+      if (shortfall <= BigInt(0)) {
+        // User already has enough, just close the modal
+        setShowSwapPrompt(false);
+        return;
+      }
+
+      // Note: swapToken only accepts sellAmount, not buyAmount
+      // We'll estimate the ETH needed (using ETH_USD_ESTIMATE ratio)
+      // The user will see the actual swap details in the Farcaster modal
+      const shortfallUSD = Number(shortfall) / Math.pow(10, USDC_DECIMALS);
+      const estimatedETH = (shortfallUSD / ETH_USD_ESTIMATE) * (1 + SWAP_BUFFER_PERCENT);
+      const sellAmount = parseUnits(estimatedETH.toFixed(ETH_DECIMALS), ETH_DECIMALS);
+
+      const result = await sdk.actions.swapToken({
+        buyToken: USDC_TOKEN_ID,
+        sellToken: ETH_TOKEN_ID,
+        sellAmount: sellAmount.toString(),
+      });
+
+      if (result.success) {
+        setShowSwapPrompt(false);
+        // Refetch balance after swap
+        await refetchBalance();
+        showToast('Swap complete! Try tipping again', 'success');
+      }
+    } catch (error) {
+      console.error('Swap failed:', error);
+      showToast('Swap failed', 'error');
+    }
+  };
+
+  // Record tip when transaction succeeds
+  useEffect(() => {
+    if (isSuccess && hash && pendingTipAmount > 0) {
+      recordTipInDatabase();
+    }
+  }, [isSuccess, hash]);
+
+  const recordTipInDatabase = async () => {
+    try {
+      const tipper = await getUserContext();
 
       const response = await fetch(`/api/tracks/${track.id}/tip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          txHash: result.send.transaction,
+          txHash: hash,
           fromFid: tipper.fid,
-          toFid: curatorFid,
-          requestedAmount: amount,
+          toFid: track.sharedBy.fid,
+          requestedAmount: pendingTipAmount,
           timestamp: Date.now(),
           tipperUsername: tipper.username,
         }),
@@ -143,27 +268,26 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
 
       if (response.ok && data.success) {
         setTipSuccess(true);
-        setLocalTipTotal(prev => prev + amount);
-        showToast(`Tip sent 💸`, 'success');
+        setLocalTipTotal(prev => prev + pendingTipAmount);
+        showToast(`$${pendingTipAmount} USDC sent 💸`, 'success');
         setShowTipAmounts(false);
         setCustomAmount('');
-        // Notify parent component that tip succeeded (optional callback)
+        setPendingTipAmount(0);
+
         if (onTip) {
           onTip(track.id);
         }
 
         setTimeout(() => {
           setTipSuccess(false);
-        }, 3000);
+        }, TIP_SUCCESS_DURATION);
       } else {
-        console.error('Failed to record tip in database:', data);
-        showToast('Transaction failed', 'error');
+        console.error('Failed to record tip:', data);
+        showToast(data.error || 'Failed to record tip', 'error');
       }
     } catch (error) {
-      console.error('Failed to tip:', error);
-      showToast('Transaction failed', 'error');
-    } finally {
-      setTipping(false);
+      console.error('Tip recording error:', error);
+      showToast('Failed to record tip', 'error');
     }
   };
 
@@ -386,6 +510,55 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
         </div>
       </div>
 
+      {/* Swap Prompt Modal */}
+      {showSwapPrompt && (() => {
+        const currentBalance = usdcBalance || BigInt(0);
+        const amountNeeded = parseUnits(pendingTipAmount.toString(), USDC_DECIMALS);
+        const shortfall = amountNeeded - currentBalance;
+        const shortfallUSD = Number(shortfall) / Math.pow(10, USDC_DECIMALS);
+        const currentUSD = Number(currentBalance) / Math.pow(10, USDC_DECIMALS);
+
+        return (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{
+              background: 'rgba(236, 236, 236, 0.6)',
+              backdropFilter: 'blur(12px)',
+            }}
+            onClick={() => setShowSwapPrompt(false)}
+          >
+            <div
+              className="panel-surface p-6 w-full max-w-md mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-bold text-[#2E2E2E] mb-2 text-center lowercase">
+                need more usdc
+              </h3>
+              <div className="text-sm text-[#5E5E5E] text-center mb-4 space-y-1">
+                <p className="lowercase">tip amount: ${pendingTipAmount.toFixed(2)} usdc</p>
+                <p className="lowercase">your balance: ${currentUSD.toFixed(2)} usdc</p>
+                <p className="font-bold text-[#2E2E2E] lowercase">need to swap: ${shortfallUSD.toFixed(2)} usdc</p>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleSwap}
+                  className="btn-pastel w-full"
+                >
+                  swap ${shortfallUSD.toFixed(2)} usdc
+                </button>
+                <button
+                  onClick={() => setShowSwapPrompt(false)}
+                  className="w-full py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase"
+                >
+                  cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tip Modal - Portal Overlay */}
       {showTipAmounts && (
         <div
@@ -394,22 +567,25 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
             background: 'rgba(236, 236, 236, 0.6)',
             backdropFilter: 'blur(12px)',
           }}
-          onClick={() => setShowTipAmounts(false)}
+          onClick={() => !isPending && !isConfirming && setShowTipAmounts(false)}
         >
           <div
             className="panel-surface p-6 w-full max-w-md mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-[#2E2E2E] mb-4 text-center lowercase">
-              tip amount (usdc)
+            <h3 className="text-lg font-bold text-[#2E2E2E] mb-1 text-center lowercase">
+              tip amount
             </h3>
+            <p className="text-xs text-[#5E5E5E] text-center mb-4 lowercase">
+              tips are sent in usdc on base
+            </p>
 
             <div className="grid grid-cols-3 gap-3 mb-4">
               {tipAmounts.map((amount) => (
                 <button
                   key={amount}
                   onClick={() => handleTip(amount)}
-                  disabled={tipping}
+                  disabled={isPending || isConfirming || !curatorAddress || !usdcBalance}
                   className="btn-neomorph px-6 py-4 font-bold disabled:opacity-50"
                 >
                   ${amount}
@@ -425,23 +601,24 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
                   placeholder="custom amount"
-                  min="1"
-                  step="1"
+                  min="0.01"
+                  step="0.01"
                   className="input-shell w-full !pl-12"
                 />
               </div>
               <button
                 onClick={() => customAmount && handleTip(Number(customAmount))}
-                disabled={!customAmount || tipping}
+                disabled={!customAmount || isPending || isConfirming || !curatorAddress || !usdcBalance}
                 className="btn-neomorph w-full disabled:opacity-50 lowercase"
               >
-                {tipping ? 'processing...' : 'send tip'}
+                {isConfirming ? 'confirming...' : isPending ? 'sending usdc...' : 'send tip'}
               </button>
             </div>
 
             <button
               onClick={() => setShowTipAmounts(false)}
-              className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase"
+              disabled={isPending || isConfirming}
+              className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase disabled:opacity-50"
             >
               cancel
             </button>

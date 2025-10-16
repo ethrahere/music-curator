@@ -27,6 +27,9 @@ export async function POST(
     const body = await request.json();
     const { txHash, fromFid, toFid, requestedAmount, tipperUsername } = body;
 
+    // NOTE: Tips are USDC-only on Base network
+    // USDC Contract: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+    // All amounts are in USD (1:1 with USDC)
     console.log('Tip request received:', { id, txHash, fromFid, toFid, requestedAmount, tipperUsername });
 
     // Validate required fields

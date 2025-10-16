@@ -1,4 +1,5 @@
 import sdk from '@farcaster/frame-sdk';
+import { USDC_TOKEN_ID, USDC_DECIMALS, APP_BASE_URL } from './constants';
 
 // Initialize Farcaster SDK
 export async function initializeFarcaster() {
@@ -96,8 +97,8 @@ export function generateEmbedMetadata(
 export async function sendTip(curatorFid: number, tipAmount: number) {
   try {
     const result = await sdk.actions.sendToken({
-      token: 'eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base USDC
-      amount: (tipAmount * 1000000).toString(), // Convert to USDC decimals (6)
+      token: USDC_TOKEN_ID, // Base USDC
+      amount: (tipAmount * Math.pow(10, USDC_DECIMALS)).toString(), // Convert to USDC decimals (6)
       recipientFid: curatorFid, // Pre-fill recipient by Farcaster ID
     });
 
@@ -141,7 +142,7 @@ export async function notifyCurator(
         notificationId: `tip-${Date.now()}`,
         title: 'You received a tip! 💰',
         body: `@${tipperUsername} tipped you $${amount} for "${trackTitle}"`,
-        targetUrl: `https://music-curator.vercel.app/track/${trackId}`,
+        targetUrl: `${APP_BASE_URL}/track/${trackId}`,
         tokens: [curatorNotificationToken],
       }),
     });

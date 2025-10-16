@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { MusicTrack } from '@/types/music';
+import { DEFAULT_ARTWORK_URL } from '@/lib/constants';
 
 export async function GET(
   request: NextRequest,
@@ -27,7 +28,7 @@ export async function GET(
       platform: data.platform || 'other',
       title: data.song_title,
       artist: data.artist,
-      artwork: data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
+      artwork: data.artwork_url || DEFAULT_ARTWORK_URL,
       embedUrl: data.embed_url || '',
       tips: data.total_tips_usd || 0,
       sharedBy: {
@@ -84,7 +85,7 @@ export async function POST(
         platform: data.platform || 'other',
         title: data.song_title,
         artist: data.artist,
-        artwork: data.artwork_url || 'https://placehold.co/600x400/1a1a1a/white?text=Music',
+        artwork: data.artwork_url || DEFAULT_ARTWORK_URL,
         embedUrl: data.embed_url || '',
         tips: data.total_tips_usd || 0,
         sharedBy: {
