@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FARCASTER_HUB_URL } from '@/lib/constants';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const getSupabase = () => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error('Missing Supabase environment variables');
+  }
+
+  return createClient(url, key);
+};
 
 /**
  * Get wallet address for a Farcaster user
@@ -20,6 +31,7 @@ export async function GET(
       fid = parseInt(username);
     } else {
       // It's a username - look up the FID
+      const supabase = getSupabase();
       const { data: user, error } = await supabase
         .from('users')
         .select('farcaster_fid')
@@ -27,6 +39,7 @@ export async function GET(
         .single();
 
       if (error || !user) {
+        console.error('User lookup error:', error);
         return NextResponse.json(
           { success: false, error: 'User not found' },
           { status: 404 }
@@ -36,27 +49,52 @@ export async function GET(
       fid = user.farcaster_fid;
     }
 
-    // Fetch verified addresses from Farcaster Hub
-    const response = await fetch(`${FARCASTER_HUB_URL}/v1/verificationsByFid?fid=${fid}`);
+    // Fetch verified addresses from Neynar API (more reliable than Farcaster Hub)
+    console.log('Fetching address for FID:', fid);
+    const neynarApiKey = process.env.NEYNAR_API_KEY;
+
+    if (!neynarApiKey) {
+      console.warn('NEYNAR_API_KEY not configured - this is required for production');
+      // For development: Return error message prompting user to get address via Farcaster
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Wallet address lookup not configured',
+          message: 'NEYNAR_API_KEY required. Get one at https://neynar.com',
+        },
+        { status: 503 }
+      );
+    }
+
+    const response = await fetch(`https://api.neynar.com/v2/farcaster/user/bulk?fids=${fid}`, {
+      headers: {
+        'accept': 'application/json',
+        'api_key': neynarApiKey,
+      },
+    });
 
     if (!response.ok) {
+      console.error('Neynar API error:', response.status, await response.text());
       return NextResponse.json(
-        { success: false, error: 'Failed to fetch from Farcaster Hub' },
+        { success: false, error: 'Failed to fetch user data' },
         { status: response.status }
       );
     }
 
     const data = await response.json();
+    console.log('Neynar response:', JSON.stringify(data, null, 2));
 
     const addresses: string[] = [];
 
-    // Extract verified addresses from messages
-    if (data.messages && Array.isArray(data.messages)) {
-      for (const message of data.messages) {
-        const address = message.data?.verificationAddBody?.address;
-        if (address) {
-          addresses.push(address);
-        }
+    // Extract verified addresses from Neynar response
+    if (data.users && Array.isArray(data.users) && data.users.length > 0) {
+      const user = data.users[0];
+      if (user.verified_addresses?.eth_addresses) {
+        addresses.push(...user.verified_addresses.eth_addresses);
+      }
+      // Also add custody address as fallback
+      if (user.custody_address) {
+        addresses.push(user.custody_address);
       }
     }
 
@@ -71,8 +109,14 @@ export async function GET(
     });
   } catch (error) {
     console.error('Error fetching address:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

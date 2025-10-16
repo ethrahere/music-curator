@@ -16,10 +16,25 @@ export async function initializeFarcaster() {
 export async function getUserContext() {
   try {
     const context = await sdk.context;
+
+    // Get connected wallet address from Ethereum provider
+    let walletAddress = null;
+    try {
+      const provider = sdk.wallet.ethProvider;
+      const accounts = await provider.request({
+        method: 'eth_accounts'
+      }) as string[];
+      walletAddress = accounts && accounts.length > 0 ? accounts[0] : null;
+      console.log('Wallet address from eth provider:', walletAddress);
+    } catch (providerError) {
+      console.error('Failed to get wallet from provider:', providerError);
+    }
+
     return {
       fid: context.user?.fid || 0,
       username: context.user?.username || 'anonymous',
       pfpUrl: context.user?.pfpUrl,
+      walletAddress,
     };
   } catch (error) {
     console.error('Failed to get user context:', error);
@@ -27,6 +42,7 @@ export async function getUserContext() {
       fid: 0,
       username: 'anonymous',
       pfpUrl: undefined,
+      walletAddress: null,
     };
   }
 }

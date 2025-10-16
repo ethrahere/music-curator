@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     let query = supabase
       .from('recommendations')
-      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score)');
+      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score, wallet_address)');
 
     // Apply genre filter if provided
     if (genre) {
@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
         fid: rec.curator?.farcaster_fid || 0,
         username: rec.curator?.username || 'unknown',
         curatorScore: rec.curator?.curator_score || 0,
+        walletAddress: rec.curator?.wallet_address || undefined, // Include wallet for tips
       },
       timestamp: new Date(rec.created_at).getTime(),
       review: rec.review || undefined,
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     const curatorFid = track.sharedBy.fid;
     const curatorUsername = track.sharedBy.username || 'anonymous';
     const curatorPfpUrl = track.sharedBy.pfpUrl;
+    const curatorWalletAddress = track.sharedBy.walletAddress;
 
     console.log('Received track data:', {
       review: body.review,
@@ -74,15 +76,17 @@ export async function POST(request: NextRequest) {
       moods: body.moods,
       curatorFid,
       curatorPfpUrl,
+      curatorWalletAddress,
     });
 
-    // Ensure user exists in users table (upsert)
+    // Ensure user exists in users table (upsert) - store wallet address for tipping
     await supabase
       .from('users')
       .upsert({
         farcaster_fid: curatorFid,
         username: curatorUsername,
         farcaster_pfp_url: curatorPfpUrl,
+        wallet_address: curatorWalletAddress, // Store for USDC tips
       }, {
         onConflict: 'farcaster_fid',
         ignoreDuplicates: false

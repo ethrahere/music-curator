@@ -12,7 +12,7 @@ export async function GET(
   try {
     const { data, error } = await supabase
       .from('recommendations')
-      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score)')
+      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score, wallet_address)')
       .eq('id', id)
       .single();
 
@@ -35,6 +35,7 @@ export async function GET(
         fid: data.curator?.farcaster_fid || 0,
         username: data.curator?.username || 'unknown',
         curatorScore: data.curator?.curator_score || 0,
+        walletAddress: data.curator?.wallet_address || undefined,
       },
       timestamp: new Date(data.created_at).getTime(),
     };
@@ -92,6 +93,7 @@ export async function POST(
           fid: data.curator?.farcaster_fid || 0,
           username: data.curator?.username || 'unknown',
           curatorScore: data.curator?.curator_score || 0,
+          walletAddress: data.curator?.wallet_address || undefined,
         },
         timestamp: new Date(data.created_at).getTime(),
       };

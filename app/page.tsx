@@ -111,6 +111,7 @@ export default function Home() {
     try {
       // Get user context
       const user = await getUserContext();
+      console.log('User context for track submission:', user);
 
       const resolveShareBaseUrl = () => {
         // Prefer a deploy URL so casts never point at localhost when sharing from dev

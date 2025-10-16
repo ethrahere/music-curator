@@ -54,6 +54,13 @@ export async function GET(
       return NextResponse.json({ success: false, tracks: [], error: error.message });
     }
 
+    // Get wallet address for this user
+    const { data: userData } = await supabase
+      .from('users')
+      .select('wallet_address')
+      .eq('farcaster_fid', user.farcaster_fid)
+      .single();
+
     // Transform to MusicTrack format
     const tracks: MusicTrack[] = (data || []).map((rec) => ({
       id: rec.id,
@@ -67,6 +74,7 @@ export async function GET(
       sharedBy: {
         fid: user.farcaster_fid || 0,
         username: username,
+        walletAddress: userData?.wallet_address || undefined,
       },
       timestamp: new Date(rec.created_at).getTime(),
     }));

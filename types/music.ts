@@ -14,6 +14,7 @@ export interface MusicTrack {
     username: string;
     curatorScore?: number;
     pfpUrl?: string;
+    walletAddress?: string; // Primary wallet address for tips
   };
   timestamp: number;
   review?: string;

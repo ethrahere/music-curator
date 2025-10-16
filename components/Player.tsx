@@ -47,7 +47,6 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
   const [coSignCount, setCoSignCount] = useState(0);
   const [localTipTotal, setLocalTipTotal] = useState(track.tips || 0);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [curatorAddress, setCuratorAddress] = useState<string | null>(null);
   const [showSwapPrompt, setShowSwapPrompt] = useState(false);
   const [pendingTipAmount, setPendingTipAmount] = useState(0);
 
@@ -68,6 +67,9 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
 
   const tipAmounts = DEFAULT_TIP_AMOUNTS;
 
+  // Get curator's wallet address from track data (no API call needed!)
+  const curatorAddress = track.sharedBy.walletAddress;
+
   // Toast system
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now();
@@ -76,22 +78,6 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, TOAST_DURATION);
   };
-
-  // Fetch curator's wallet address
-  useEffect(() => {
-    const fetchCuratorAddress = async () => {
-      try {
-        const response = await fetch(`/api/users/${track.sharedBy.fid}/address`);
-        const data = await response.json();
-        if (data.success && data.primaryAddress) {
-          setCuratorAddress(data.primaryAddress);
-        }
-      } catch (error) {
-        console.error('Failed to fetch curator address:', error);
-      }
-    };
-    fetchCuratorAddress();
-  }, [track.sharedBy.fid]);
 
   // Check if user has already co-signed this track
   useEffect(() => {
