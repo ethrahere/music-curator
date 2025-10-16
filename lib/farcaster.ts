@@ -18,13 +18,13 @@ export async function getUserContext() {
     const context = await sdk.context;
 
     // Get connected wallet address from Ethereum provider
-    let walletAddress = null;
+    let walletAddress: string | undefined = undefined;
     try {
       const provider = sdk.wallet.ethProvider;
       const accounts = await provider.request({
         method: 'eth_accounts'
       }) as string[];
-      walletAddress = accounts && accounts.length > 0 ? accounts[0] : null;
+      walletAddress = accounts && accounts.length > 0 ? accounts[0] : undefined;
       console.log('Wallet address from eth provider:', walletAddress);
     } catch (providerError) {
       console.error('Failed to get wallet from provider:', providerError);
@@ -42,7 +42,7 @@ export async function getUserContext() {
       fid: 0,
       username: 'anonymous',
       pfpUrl: undefined,
-      walletAddress: null,
+      walletAddress: undefined,
     };
   }
 }
