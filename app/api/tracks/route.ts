@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     let query = supabase
       .from('recommendations')
-      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score, wallet_address)');
+      .select('*, curator:users!curator_fid(farcaster_fid, username, curator_score, wallet_address, farcaster_pfp_url)');
 
     // Apply genre filter if provided
     if (genre) {
@@ -48,7 +48,8 @@ export async function GET(request: NextRequest) {
         fid: rec.curator?.farcaster_fid || 0,
         username: rec.curator?.username || 'unknown',
         curatorScore: rec.curator?.curator_score || 0,
-        walletAddress: rec.curator?.wallet_address || undefined, // Include wallet for tips
+        walletAddress: rec.curator?.wallet_address || undefined,
+        pfpUrl: rec.curator?.farcaster_pfp_url || undefined, // Include pfp for display
       },
       timestamp: new Date(rec.created_at).getTime(),
       review: rec.review || undefined,

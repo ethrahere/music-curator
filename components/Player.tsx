@@ -49,6 +49,8 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showSwapPrompt, setShowSwapPrompt] = useState(false);
   const [pendingTipAmount, setPendingTipAmount] = useState(0);
+  const [cosigners, setCosigners] = useState<Array<{fid: number, username: string, pfpUrl?: string}>>([]);
+  const [tippers, setTippers] = useState<Array<{fid: number, username: string, pfpUrl?: string}>>([]);
 
   const { address } = useAccount();
   const [isTipping, setIsTipping] = useState(false);
@@ -94,6 +96,31 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
       }
     };
     checkCoSign();
+  }, [track.id]);
+
+  // Fetch co-signers and tippers with profile pictures
+  useEffect(() => {
+    const fetchEngagement = async () => {
+      try {
+        const [cosignersRes, tippersRes] = await Promise.all([
+          fetch(`/api/tracks/${track.id}/cosigners?limit=5`),
+          fetch(`/api/tracks/${track.id}/tippers?limit=5`)
+        ]);
+
+        const cosignersData = await cosignersRes.json();
+        const tippersData = await tippersRes.json();
+
+        if (cosignersData.success) {
+          setCosigners(cosignersData.cosigners || []);
+        }
+        if (tippersData.success) {
+          setTippers(tippersData.tippers || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch engagement data:', error);
+      }
+    };
+    fetchEngagement();
   }, [track.id]);
 
   // Body scroll lock when modal is open
@@ -425,11 +452,23 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
               {/* CuratorInfo */}
               <Link href={`/curator/${track.sharedBy.username}`} className="block mb-4">
                 <div className="panel-surface-flat p-2 flex items-center gap-3 hover:scale-[1.01] transition-transform">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F36C5B] to-[#B8E1C2] flex items-center justify-center flex-shrink-0">
-                    <span className="text-white font-bold text-sm">
-                      {track.sharedBy.username.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {track.sharedBy.pfpUrl ? (
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-[#ECECEC] flex-shrink-0">
+                      <Image
+                        src={track.sharedBy.pfpUrl}
+                        alt={track.sharedBy.username}
+                        width={40}
+                        height={40}
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#F36C5B] to-[#B8E1C2] flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-sm">
+                        {track.sharedBy.username.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[#2E2E2E] lowercase">@{track.sharedBy.username}</p>
                     <p className="text-xs text-[#5E5E5E] lowercase">curator</p>
@@ -443,11 +482,102 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
                 </div>
               </Link>
 
-              {/* SocialProofBar - Moved here from bottom */}
-              <div className="text-center">
-                <p className="mono-number text-xs text-[#5E5E5E]">
-                  💫 {coSignCount} Co-signs · 💸 ${localTipTotal.toFixed(2)} Tipped
-                </p>
+              {/* Engagement Section - Instagram Style */}
+              <div className="space-y-3">
+                {/* Co-signers Section */}
+                {cosigners.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {/* Stacked Avatars */}
+                    <div className="flex -space-x-2">
+                      {cosigners.slice(0, 3).map((cosigner, index) => (
+                        <div
+                          key={cosigner.fid}
+                          className="w-6 h-6 rounded-full border-2 border-[#F6F6F6] overflow-hidden flex-shrink-0"
+                          style={{ zIndex: 3 - index }}
+                        >
+                          {cosigner.pfpUrl ? (
+                            <Image
+                              src={cosigner.pfpUrl}
+                              alt={cosigner.username}
+                              width={24}
+                              height={24}
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#F36C5B] to-[#B8E1C2] flex items-center justify-center">
+                              <span className="text-white font-bold text-[0.5rem]">
+                                {cosigner.username.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[#5E5E5E] lowercase">
+                      co-signed by{' '}
+                      <span className="font-semibold text-[#2E2E2E]">
+                        @{cosigners[0].username}
+                      </span>
+                      {coSignCount > 1 && (
+                        <span> and {coSignCount - 1} other{coSignCount > 2 ? 's' : ''}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Tippers Section */}
+                {tippers.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    {/* Stacked Avatars */}
+                    <div className="flex -space-x-2">
+                      {tippers.slice(0, 3).map((tipper, index) => (
+                        <div
+                          key={tipper.fid}
+                          className="w-6 h-6 rounded-full border-2 border-[#F6F6F6] overflow-hidden flex-shrink-0"
+                          style={{ zIndex: 3 - index }}
+                        >
+                          {tipper.pfpUrl ? (
+                            <Image
+                              src={tipper.pfpUrl}
+                              alt={tipper.username}
+                              width={24}
+                              height={24}
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#EFBF56] to-[#F36C5B] flex items-center justify-center">
+                              <span className="text-white font-bold text-[0.5rem]">
+                                {tipper.username.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[#5E5E5E] lowercase">
+                      tipped by{' '}
+                      <span className="font-semibold text-[#2E2E2E]">
+                        @{tippers[0].username}
+                      </span>
+                      {tippers.length > 1 && (
+                        <span> and {tippers.length - 1} other{tippers.length > 2 ? 's' : ''}</span>
+                      )}
+                      {' · '}
+                      <span className="font-semibold text-[#EFBF56]">
+                        ${localTipTotal.toFixed(2)}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
+                {/* Fallback: Show stats when no avatars available */}
+                {cosigners.length === 0 && tippers.length === 0 && (
+                  <div className="text-center">
+                    <p className="mono-number text-xs text-[#5E5E5E]">
+                      💫 {coSignCount} Co-signs · 💸 ${localTipTotal.toFixed(2)} Tipped
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

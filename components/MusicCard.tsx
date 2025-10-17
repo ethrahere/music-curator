@@ -57,20 +57,34 @@ export default function MusicCard({ track, onPlay, onTip, isPlaying = false }: M
           <p className="text-sm text-[#5E5E5E] truncate lowercase">{track.artist}</p>
         </div>
 
-        {/* Bottom Row: Platform Tag, Curator, Tips */}
+        {/* Bottom Row: Curator PFP + Username, Tips */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <span className="pill-tag text-[0.65rem] flex-shrink-0">
-              {track.platform}
-            </span>
-            <Link
-              href={`/curator/${track.sharedBy.username}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs text-[#5E5E5E] hover:text-[#2E2E2E] transition-colors truncate lowercase"
-            >
+          <Link
+            href={`/curator/${track.sharedBy.username}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+          >
+            {track.sharedBy.pfpUrl ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden border border-[#ECECEC] flex-shrink-0">
+                <Image
+                  src={track.sharedBy.pfpUrl}
+                  alt={track.sharedBy.username}
+                  width={24}
+                  height={24}
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#F36C5B] to-[#B8E1C2] flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-bold text-[0.6rem]">
+                  {track.sharedBy.username.charAt(0).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <span className="text-xs text-[#5E5E5E] truncate lowercase">
               @{track.sharedBy.username}
-            </Link>
-          </div>
+            </span>
+          </Link>
 
           {/* Tip Counter - LED Style */}
           {onTip && (
