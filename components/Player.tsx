@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { getUserContext } from '@/lib/farcaster';
 import sdk from '@farcaster/frame-sdk';
 import { useState, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { parseUnits, erc20Abi, type Address } from 'viem';
+import { useAccount, useReadContract } from 'wagmi';
+import { parseUnits, erc20Abi, encodeFunctionData } from 'viem';
 import {
   USDC_ADDRESS,
   USDC_TOKEN_ID,
@@ -51,8 +51,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
   const [pendingTipAmount, setPendingTipAmount] = useState(0);
 
   const { address } = useAccount();
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const [isTipping, setIsTipping] = useState(false);
 
   // Read user's USDC balance using high-level wagmi hook
   const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
@@ -165,21 +164,62 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
       return;
     }
 
-    // Check balance first
-    const hasBalance = await checkUSDCBalance(amount);
-    if (!hasBalance) return;
-
     setPendingTipAmount(amount);
+    setIsTipping(true);
 
-    const amountInUSDC = parseUnits(amount.toString(), USDC_DECIMALS);
+    try {
+      // Get ethereum provider from SDK
+      const provider = sdk.wallet.ethProvider;
 
-    // Direct USDC transfer - user CANNOT change token (using high-level erc20Abi)
-    writeContract({
-      address: USDC_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'transfer',
-      args: [curatorAddress as Address, amountInUSDC],
-    });
+      // Get user's wallet address
+      const accounts = await provider.request({
+        method: 'eth_accounts'
+      }) as string[];
+
+      if (!accounts || accounts.length === 0) {
+        showToast('No wallet connected', 'error');
+        setIsTipping(false);
+        return;
+      }
+
+      const fromAddress = accounts[0];
+
+      // Calculate amount in USDC smallest unit (6 decimals)
+      const amountInSmallestUnit = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
+
+      // Encode ERC-20 transfer function call using viem
+      const data = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [curatorAddress as `0x${string}`, amountInSmallestUnit]
+      });
+
+      // Trigger Warpcast transaction UI - this opens native confirmation modal
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: fromAddress as `0x${string}`,
+          to: USDC_ADDRESS,
+          data: data as `0x${string}`,
+          value: '0x0'
+        }]
+      }) as string;
+
+      // Record in database
+      await recordTipInDatabase(txHash, amount);
+
+    } catch (error) {
+      console.error('Tip error:', error);
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('User denied')) {
+        showToast('Transaction cancelled', 'error');
+      } else {
+        showToast('Transaction failed', 'error');
+      }
+      setPendingTipAmount(0);
+    } finally {
+      setIsTipping(false);
+    }
   };
 
   // Handle swap to USDC - swaps exact amount needed for tip
@@ -226,14 +266,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
     }
   };
 
-  // Record tip when transaction succeeds
-  useEffect(() => {
-    if (isSuccess && hash && pendingTipAmount > 0) {
-      recordTipInDatabase();
-    }
-  }, [isSuccess, hash]);
-
-  const recordTipInDatabase = async () => {
+  const recordTipInDatabase = async (txHash: string, amount: number) => {
     try {
       const tipper = await getUserContext();
 
@@ -241,10 +274,10 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          txHash: hash,
+          txHash: txHash,
           fromFid: tipper.fid,
           toFid: track.sharedBy.fid,
-          requestedAmount: pendingTipAmount,
+          requestedAmount: amount,
           timestamp: Date.now(),
           tipperUsername: tipper.username,
         }),
@@ -254,8 +287,8 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
 
       if (response.ok && data.success) {
         setTipSuccess(true);
-        setLocalTipTotal(prev => prev + pendingTipAmount);
-        showToast(`$${pendingTipAmount} USDC sent 💸`, 'success');
+        setLocalTipTotal(prev => prev + amount);
+        showToast(`$${amount} USDC sent 💸`, 'success');
         setShowTipAmounts(false);
         setCustomAmount('');
         setPendingTipAmount(0);
@@ -426,7 +459,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
       <div className="fixed bottom-0 left-0 right-0 bg-[#ECECEC] px-4 py-3">
         {/* Control Bar Panel - Synth-like raised strip */}
         <div
-          className="max-w-2xl mx-auto p-3 grid grid-cols-2 gap-3"
+          className={`max-w-2xl mx-auto p-3 ${curatorAddress ? 'grid grid-cols-2' : 'flex justify-center'} gap-3`}
           style={{
             background: '#F6F6F6',
             borderRadius: '18px',
@@ -470,29 +503,31 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
             </span>
           </button>
 
-          {/* Tip Button */}
-          <button
-            onClick={() => setShowTipAmounts(true)}
-            disabled={showTipAmounts}
-            className={`
-              py-5 px-4 flex items-center justify-center gap-2
-              ${tipSuccess ? 'animate-pulse' : ''}
-              disabled:opacity-50
-            `}
-            style={{
-              background: 'linear-gradient(135deg, #B8E1C2 0%, #a8d4b2 100%)',
-              borderRadius: '18px',
-              boxShadow: tipSuccess
-                ? '0 0 20px rgba(184, 225, 194, 0.8), 4px 4px 12px rgba(184, 225, 194, 0.3)'
-                : '4px 4px 12px rgba(184, 225, 194, 0.3)',
-              color: '#2E2E2E',
-              fontWeight: 'bold',
-              transition: 'all 0.08s ease-in-out',
-            }}
-          >
-            <DollarSign className="w-5 h-5" />
-            <span className="text-sm font-bold lowercase">tip</span>
-          </button>
+          {/* Tip Button - Only show if curator has wallet address */}
+          {curatorAddress && (
+            <button
+              onClick={() => setShowTipAmounts(true)}
+              disabled={showTipAmounts}
+              className={`
+                py-5 px-4 flex items-center justify-center gap-2
+                ${tipSuccess ? 'animate-pulse' : ''}
+                disabled:opacity-50
+              `}
+              style={{
+                background: 'linear-gradient(135deg, #B8E1C2 0%, #a8d4b2 100%)',
+                borderRadius: '18px',
+                boxShadow: tipSuccess
+                  ? '0 0 20px rgba(184, 225, 194, 0.8), 4px 4px 12px rgba(184, 225, 194, 0.3)'
+                  : '4px 4px 12px rgba(184, 225, 194, 0.3)',
+                color: '#2E2E2E',
+                fontWeight: 'bold',
+                transition: 'all 0.08s ease-in-out',
+              }}
+            >
+              <DollarSign className="w-5 h-5" />
+              <span className="text-sm font-bold lowercase">tip</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -553,7 +588,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
             background: 'rgba(236, 236, 236, 0.6)',
             backdropFilter: 'blur(12px)',
           }}
-          onClick={() => !isPending && !isConfirming && setShowTipAmounts(false)}
+          onClick={() => !isTipping && setShowTipAmounts(false)}
         >
           <div
             className="panel-surface p-6 w-full max-w-md mx-4"
@@ -571,7 +606,7 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
                 <button
                   key={amount}
                   onClick={() => handleTip(amount)}
-                  disabled={isPending || isConfirming || !curatorAddress || !usdcBalance}
+                  disabled={isTipping || !curatorAddress}
                   className="btn-neomorph px-6 py-4 font-bold disabled:opacity-50"
                 >
                   ${amount}
@@ -594,16 +629,16 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
               </div>
               <button
                 onClick={() => customAmount && handleTip(Number(customAmount))}
-                disabled={!customAmount || isPending || isConfirming || !curatorAddress || !usdcBalance}
+                disabled={!customAmount || isTipping || !curatorAddress}
                 className="btn-neomorph w-full disabled:opacity-50 lowercase"
               >
-                {isConfirming ? 'confirming...' : isPending ? 'sending usdc...' : 'send tip'}
+                {isTipping ? 'sending usdc...' : 'send tip'}
               </button>
             </div>
 
             <button
               onClick={() => setShowTipAmounts(false)}
-              disabled={isPending || isConfirming}
+              disabled={isTipping}
               className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase disabled:opacity-50"
             >
               cancel
