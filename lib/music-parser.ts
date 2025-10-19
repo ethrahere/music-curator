@@ -40,16 +40,21 @@ function extractBandcampInfo(url: string): { url: string } | null {
 
 // Detect platform from URL
 export function detectPlatform(url: string): MusicPlatform {
-  if (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('music.youtube.com')) {
-    return 'youtube';
-  }
-  if (url.includes('spotify.com')) {
+  const urlLower = url.toLowerCase();
+
+  if (urlLower.includes('spotify.com')) {
     return 'spotify';
   }
-  if (url.includes('soundcloud.com')) {
+  if (urlLower.includes('music.apple.com')) {
+    return 'apple music';
+  }
+  if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be') || urlLower.includes('music.youtube.com')) {
+    return 'youtube';
+  }
+  if (urlLower.includes('soundcloud.com')) {
     return 'soundcloud';
   }
-  if (url.includes('bandcamp.com')) {
+  if (urlLower.includes('bandcamp.com')) {
     return 'bandcamp';
   }
   return 'other';

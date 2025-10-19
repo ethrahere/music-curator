@@ -6,6 +6,8 @@
  * and returns canonical track information plus links for all available platforms.
  */
 
+import { MusicPlatform } from '@/types/music';
+
 export interface SonglinkResponse {
   entityUniqueId: string; // Canonical identifier for the track
   pageUrl: string; // Songlink page URL
@@ -137,17 +139,18 @@ export async function fetchSonglinkData(url: string): Promise<NormalizedTrack | 
 /**
  * Detect platform from URL
  * @param url - Music URL
- * @returns Platform name or 'unknown'
+ * @returns Platform name from MusicPlatform union
  */
-export function detectPlatform(url: string): string {
+export function detectPlatform(url: string): MusicPlatform {
   const urlLower = url.toLowerCase();
 
   if (urlLower.includes('spotify.com')) return 'spotify';
-  if (urlLower.includes('music.apple.com')) return 'appleMusic';
-  if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) return 'youtube';
+  if (urlLower.includes('music.apple.com')) return 'apple music';
+  if (urlLower.includes('bandcamp.com')) return 'bandcamp';
+  if (urlLower.includes('music.youtube.com') || urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) {
+    return 'youtube';
+  }
   if (urlLower.includes('soundcloud.com')) return 'soundcloud';
-  if (urlLower.includes('music.youtube.com')) return 'youtubeMusic';
-  if (urlLower.includes('tidal.com')) return 'tidal';
 
-  return 'unknown';
+  return 'other';
 }
