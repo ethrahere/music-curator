@@ -4,10 +4,14 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import ShareMusicModal from '@/components/ShareMusicModal';
 import MusicCard from '@/components/MusicCard';
+// import CurationCard from '@/components/CurationCard'; // Will use later
+// import TopCurators from '@/components/TopCurators'; // Temporarily disabled
 import Player from '@/components/Player';
+import XPSuccessModal, { type XPData } from '@/components/XPSuccessModal';
+import BottomNav from '@/components/BottomNav';
 import { MusicTrack, MusicMetadata } from '@/types/music';
 import { initializeFarcaster, getUserContext, shareToFarcaster } from '@/lib/farcaster';
-import { Music2, Loader2, Plus, User } from 'lucide-react';
+import { Music2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Home() {
@@ -20,6 +24,7 @@ export default function Home() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [userContext, setUserContext] = useState<{ fid: number; username: string; pfpUrl?: string } | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'electronic'>('all');
+  const [xpModalData, setXpModalData] = useState<{ xp: XPData; trackTitle: string } | null>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
 
   const LIMIT = 12;
@@ -176,6 +181,17 @@ export default function Home() {
       });
 
       if (data.success && data.track) {
+        // Close share modal first
+        setIsShareModalOpen(false);
+
+        // Show XP success modal if XP data exists
+        if (data.xp) {
+          setXpModalData({
+            xp: data.xp,
+            trackTitle: `${data.track.title} - ${data.track.artist}`
+          });
+        }
+
         // Share to Farcaster using DB-generated ID
         const baseUrl = resolveShareBaseUrl();
         const trackUrl = `${baseUrl}/track/${data.track.id}`;
@@ -227,52 +243,19 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* Header - Floating Nav */}
+      {/* Header - Logo Only */}
       <header className="sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="panel-surface px-4 py-3">
-            <div className="flex items-center justify-between gap-2">
-              {/* Left: User Profile */}
-              <button
-                onClick={() => router.push('/profile')}
-                className="flex-shrink-0 hover:opacity-80 transition-opacity"
-              >
-                {userContext?.pfpUrl ? (
-                  <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-[#a8e6c5]">
-                    <Image
-                      src={userContext.pfpUrl}
-                      alt={userContext.username}
-                      width={36}
-                      height={36}
-                      className="object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] flex items-center justify-center">
-                    <User className="w-5 h-5 text-[#0b1a12]" />
-                  </div>
-                )}
-              </button>
-
-              {/* Center: Logo */}
-              <div className="flex-1 flex justify-center">
-                <Image
-                  src="/curio.png"
-                  alt="Curio"
-                  width={100}
-                  height={32}
-                  className="object-contain"
-                  priority
-                />
-              </div>
-
-              {/* Right: Share Music Button */}
-              <button
-                onClick={() => setIsShareModalOpen(true)}
-                className="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] flex items-center justify-center shadow-lg transition-all hover:scale-105"
-              >
-                <Plus className="w-5 h-5 text-[#0b1a12]" />
-              </button>
+            <div className="flex items-center justify-center">
+              <Image
+                src="/curio.png"
+                alt="Curio"
+                width={100}
+                height={32}
+                className="object-contain"
+                priority
+              />
             </div>
           </div>
         </div>
@@ -286,10 +269,12 @@ export default function Home() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 pb-8 pt-6">
+      <main className="max-w-7xl mx-auto pb-24 pt-6">
+
+        {/* <TopCurators /> */}
 
         {/* Filter Pills */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-6 px-4">
           <button
             onClick={() => setSelectedFilter('all')}
             className={`px-5 py-2 rounded-full font-semibold text-sm transition-all ${
@@ -312,9 +297,12 @@ export default function Home() {
           </button>
         </div>
 
-        {/* All Tracks with Infinite Scroll */}
+        {/* Recent Curations Section */}
         {tracks.length > 0 && (
-          <div>
+          <div className="px-4">
+            <h2 className="text-lg font-bold text-[#2E2E2E] mb-4 lowercase">
+              recent curations
+            </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {tracks.map((track) => (
@@ -372,6 +360,20 @@ export default function Home() {
           onPlayNext={setSelectedTrack}
         />
       )}
+
+      {/* XP Success Modal */}
+      <XPSuccessModal
+        isOpen={!!xpModalData}
+        onClose={() => setXpModalData(null)}
+        xpData={xpModalData?.xp || null}
+        trackTitle={xpModalData?.trackTitle || ''}
+      />
+
+      {/* Bottom Navigation */}
+      <BottomNav
+        userPfpUrl={userContext?.pfpUrl}
+        onShareClick={() => setIsShareModalOpen(true)}
+      />
     </div>
   );
 }

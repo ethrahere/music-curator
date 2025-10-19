@@ -4,6 +4,7 @@ import { MusicTrack } from '@/types/music';
 import { Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface MusicCardProps {
   track: MusicTrack;
@@ -13,8 +14,15 @@ interface MusicCardProps {
 }
 
 export default function MusicCard({ track, onPlay, onTip, isPlaying = false }: MusicCardProps) {
+  const router = useRouter();
+
+  const handlePlay = () => {
+    // Navigate to listen page with track ID and curator username
+    router.push(`/listen?track=${track.id}&curator=${track.sharedBy.username}`);
+  };
+
   return (
-    <div className="panel-surface card-tactile overflow-hidden cursor-pointer group relative" onClick={() => onPlay(track)}>
+    <div className="panel-surface card-tactile overflow-hidden cursor-pointer group relative" onClick={handlePlay}>
       {/* LED Playing Indicator */}
       {isPlaying && (
         <div className="absolute top-4 right-4 z-10 led-dot"></div>
@@ -39,7 +47,7 @@ export default function MusicCard({ track, onPlay, onTip, isPlaying = false }: M
             className="btn-circular w-20 h-20"
             onClick={(e) => {
               e.stopPropagation();
-              onPlay(track);
+              handlePlay();
             }}
           >
             <Play className="w-8 h-8 text-[#F36C5B] ml-1" fill="currentColor" />

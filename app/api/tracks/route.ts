@@ -39,6 +39,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ tracks: [] });
     }
 
+    // Get co-sign counts for all tracks
+    const trackIds = data?.map(rec => rec.id) || [];
+    const { data: coSignData } = await supabase
+      .from('co_signs')
+      .select('recommendation_id')
+      .in('recommendation_id', trackIds);
+
+    // Count co-signs per track
+    const coSignCounts = (coSignData || []).reduce((acc, cs) => {
+      acc[cs.recommendation_id] = (acc[cs.recommendation_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
     // Transform DB records to MusicTrack format
     const tracks: MusicTrack[] = (data || []).map((rec) => {
       // Use track data if available (new schema), fallback to old schema
@@ -53,6 +66,7 @@ export async function GET(request: NextRequest) {
         artwork: trackData.album_artwork_url || rec.artwork_url || DEFAULT_ARTWORK_URL,
         embedUrl: rec.embed_url || '',
         tips: rec.total_tips_usd || 0,
+        coSigns: coSignCounts[rec.id] || 0,
         sharedBy: {
           fid: rec.curator?.farcaster_fid || 0,
           username: rec.curator?.username || 'unknown',
@@ -171,7 +185,46 @@ export async function POST(request: NextRequest) {
         console.log('[TRACK SUBMISSION] New track created with ID:', trackId);
       }
 
-      // Step 4: Create recommendation linking curator to track
+      // Step 4: Check for taste overlap (other curators who shared this track)
+      console.log('[TRACK SUBMISSION] Checking for taste overlap...');
+      const { data: existingRecs, error: overlapError } = await supabase
+        .from('recommendations')
+        .select(`
+          id,
+          curator_fid,
+          curator:users!curator_fid(farcaster_fid, username, farcaster_pfp_url)
+        `)
+        .eq('track_id', trackId)
+        .neq('curator_fid', curatorFid)
+        .limit(10);
+
+      type TasteOverlapRecord = {
+        id: string;
+        curator_fid: number;
+        curator: {
+          farcaster_fid: number;
+          username: string | null;
+          farcaster_pfp_url: string | null;
+        } | null;
+      };
+
+      const tasteOverlapCurators: TasteOverlapRecord[] = (existingRecs || []).map((rec) => {
+        const curator = Array.isArray(rec.curator) ? rec.curator[0] : rec.curator;
+        return {
+          id: rec.id,
+          curator_fid: rec.curator_fid,
+          curator: curator
+            ? {
+                farcaster_fid: curator.farcaster_fid,
+                username: curator.username ?? null,
+                farcaster_pfp_url: curator.farcaster_pfp_url ?? null,
+              }
+            : null,
+        };
+      });
+      console.log(`[TRACK SUBMISSION] Found ${tasteOverlapCurators.length} other curator(s) who shared this track`);
+
+      // Step 5: Create recommendation linking curator to track
       const { data: recommendation, error: recError } = await supabase
         .from('recommendations')
         .insert({
@@ -198,6 +251,62 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: recError.message }, { status: 400 });
       }
 
+      // Step 6: Award XP for sharing
+      console.log('[TRACK SUBMISSION] Awarding XP...');
+      let totalXpEarned = 0;
+      const xpActivities = [];
+
+      // Award 10 XP for sharing
+      const { data: shareActivity } = await supabase.rpc('log_curator_activity', {
+        p_curator_fid: curatorFid,
+        p_activity_type: 'share',
+        p_xp_earned: 10,
+        p_recommendation_id: recommendation.id,
+        p_track_id: trackId,
+        p_metadata: null
+      });
+      totalXpEarned += 10;
+      xpActivities.push({ type: 'share', xp: 10 });
+      console.log('[TRACK SUBMISSION] +10 XP for sharing');
+
+      // Award 50 XP per taste overlap curator
+      if (tasteOverlapCurators.length > 0) {
+        for (const otherRec of tasteOverlapCurators) {
+          const { data: overlapActivity } = await supabase.rpc('log_curator_activity', {
+            p_curator_fid: curatorFid,
+            p_activity_type: 'taste_overlap',
+            p_xp_earned: 50,
+            p_recommendation_id: recommendation.id,
+            p_track_id: trackId,
+            p_metadata: {
+              other_curator_fid: otherRec.curator_fid,
+              other_curator_username: otherRec.curator?.username,
+              other_curator_pfp: otherRec.curator?.farcaster_pfp_url
+            }
+          });
+          totalXpEarned += 50;
+          xpActivities.push({
+            type: 'taste_overlap',
+            xp: 50,
+            curator: {
+              fid: otherRec.curator_fid,
+              username: otherRec.curator?.username,
+              pfpUrl: otherRec.curator?.farcaster_pfp_url
+            }
+          });
+          console.log(`[TRACK SUBMISSION] +50 XP for taste overlap with @${otherRec.curator?.username}`);
+        }
+      }
+
+      // Get updated user XP total
+      const { data: userData } = await supabase
+        .from('users')
+        .select('xp')
+        .eq('farcaster_fid', curatorFid)
+        .single();
+
+      console.log(`[TRACK SUBMISSION] Total XP earned: ${totalXpEarned}, User total: ${userData?.xp || 0}`);
+
       // Return track with DB-generated ID and Songlink data
       const savedTrack: MusicTrack = {
         id: recommendation.id,
@@ -223,7 +332,15 @@ export async function POST(request: NextRequest) {
       };
 
       console.log('[TRACK SUBMISSION] Successfully saved track and recommendation');
-      return NextResponse.json({ success: true, track: savedTrack });
+      return NextResponse.json({
+        success: true,
+        track: savedTrack,
+        xp: {
+          earned: totalXpEarned,
+          total: userData?.xp || 0,
+          activities: xpActivities
+        }
+      });
 
     } else {
       // Fallback: Use old schema if Songlink fails

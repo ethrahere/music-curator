@@ -6,14 +6,17 @@ import { getUserContext, initializeFarcaster } from '@/lib/farcaster';
 import { MusicTrack } from '@/types/music';
 import MusicCard from '@/components/MusicCard';
 import Player from '@/components/Player';
-import { ArrowLeft, User, Edit3, Music, Users, DollarSign, TrendingUp, Award, Folder, Share2 } from 'lucide-react';
+import { ArrowLeft, User, Edit3, Music, Users, DollarSign, TrendingUp, Award, Folder, Share2, Sparkles, Star } from 'lucide-react';
 import Image from 'next/image';
+import BottomNav from '@/components/BottomNav';
 
 interface UserStats {
   tracksShared: number;
   followers: number;
   tipsEarned: number;
   successRate: number;
+  xp: number;
+  curatorScore: number;
 }
 
 export default function ProfilePage() {
@@ -26,6 +29,8 @@ export default function ProfilePage() {
     followers: 0,
     tipsEarned: 0,
     successRate: 0,
+    xp: 0,
+    curatorScore: 0,
   });
   const [userTracks, setUserTracks] = useState<MusicTrack[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<MusicTrack | null>(null);
@@ -115,7 +120,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen pb-8">
+    <div className="min-h-screen pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-3">
@@ -204,29 +209,40 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white/40 rounded-xl p-4 text-center">
-              <Music className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
-              <div className="text-2xl font-bold text-[#0b1a12]">{stats.tracksShared}</div>
-              <div className="text-xs text-[#2d4a3a]">Tracks Shared</div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {/* XP Card */}
+            <div className="bg-gradient-to-br from-[#a8e6c5] to-[#7fd4a8] rounded-xl p-4 text-center">
+              <Sparkles className="w-5 h-5 text-[#0b1a12] mx-auto mb-2" />
+              <div className="text-2xl font-bold text-[#0b1a12] mono-number">{stats.xp.toLocaleString()}</div>
+              <div className="text-xs text-[#0b1a12] font-semibold lowercase">total xp</div>
             </div>
 
-            <div className="bg-white/40 rounded-xl p-4 text-center">
-              <Users className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
-              <div className="text-2xl font-bold text-[#0b1a12]">{stats.followers}</div>
-              <div className="text-xs text-[#2d4a3a]">Followers</div>
+            {/* Curator Score Card */}
+            <div className="bg-gradient-to-br from-[#EFBF56] to-[#F36C5B] rounded-xl p-4 text-center">
+              <Star className="w-5 h-5 text-white mx-auto mb-2" />
+              <div className="text-2xl font-bold text-white mono-number">{stats.curatorScore.toLocaleString()}</div>
+              <div className="text-xs text-white font-semibold lowercase">curator score</div>
             </div>
 
+            {/* Tips Earned */}
             <div className="bg-white/40 rounded-xl p-4 text-center">
               <DollarSign className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
               <div className="text-2xl font-bold text-[#0b1a12]">${stats.tipsEarned}</div>
-              <div className="text-xs text-[#2d4a3a]">Tips Earned</div>
+              <div className="text-xs text-[#2d4a3a] lowercase">tips earned</div>
             </div>
 
+            {/* Tracks Shared */}
             <div className="bg-white/40 rounded-xl p-4 text-center">
-              <TrendingUp className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
-              <div className="text-2xl font-bold text-[#0b1a12]">{stats.successRate}%</div>
-              <div className="text-xs text-[#2d4a3a]">Success Rate</div>
+              <Music className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
+              <div className="text-2xl font-bold text-[#0b1a12]">{stats.tracksShared}</div>
+              <div className="text-xs text-[#2d4a3a] lowercase">tracks shared</div>
+            </div>
+
+            {/* Followers */}
+            <div className="bg-white/40 rounded-xl p-4 text-center">
+              <Users className="w-5 h-5 text-[#7fd4a8] mx-auto mb-2" />
+              <div className="text-2xl font-bold text-[#0b1a12]">{stats.followers}</div>
+              <div className="text-xs text-[#2d4a3a] lowercase">followers</div>
             </div>
           </div>
 
@@ -324,6 +340,12 @@ export default function ProfilePage() {
           onPlayNext={setSelectedTrack}
         />
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNav
+        userPfpUrl={userContext?.pfpUrl}
+        onShareClick={() => router.push('/')}
+      />
     </div>
   );
 }

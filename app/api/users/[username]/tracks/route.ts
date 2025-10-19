@@ -54,12 +54,25 @@ export async function GET(
       return NextResponse.json({ success: false, tracks: [], error: error.message });
     }
 
-    // Get wallet address for this user
+    // Get wallet address and curator data for this user
     const { data: userData } = await supabase
       .from('users')
-      .select('wallet_address')
+      .select('wallet_address, curator_score, farcaster_pfp_url')
       .eq('farcaster_fid', user.farcaster_fid)
       .single();
+
+    // Get co-sign counts for all tracks
+    const trackIds = data?.map(rec => rec.id) || [];
+    const { data: coSignData } = await supabase
+      .from('co_signs')
+      .select('recommendation_id')
+      .in('recommendation_id', trackIds);
+
+    // Count co-signs per track
+    const coSignCounts = (coSignData || []).reduce((acc, cs) => {
+      acc[cs.recommendation_id] = (acc[cs.recommendation_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     // Transform to MusicTrack format
     const tracks: MusicTrack[] = (data || []).map((rec) => ({
@@ -71,13 +84,19 @@ export async function GET(
       artwork: rec.artwork_url || DEFAULT_ARTWORK_URL,
       embedUrl: rec.embed_url || '',
       tips: rec.total_tips_usd || 0,
+      coSigns: coSignCounts[rec.id] || 0,
       sharedBy: {
         fid: user.farcaster_fid || 0,
         username: username,
+        curatorScore: userData?.curator_score || 0,
+        pfpUrl: userData?.farcaster_pfp_url || undefined,
         walletAddress: userData?.wallet_address || undefined,
       },
       timestamp: new Date(rec.created_at).getTime(),
+      review: rec.review || undefined,
     }));
+
+    console.log('Transformed tracks with tips:', tracks.map(t => ({ id: t.id, title: t.title, tips: t.tips })));
 
     return NextResponse.json({ success: true, tracks });
   } catch (error) {

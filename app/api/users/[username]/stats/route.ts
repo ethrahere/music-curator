@@ -23,7 +23,7 @@ export async function GET(
     // Get user info by username
     const { data: user } = await supabase
       .from('users')
-      .select('farcaster_fid, bio')
+      .select('farcaster_fid, bio, xp, curator_score')
       .eq('username', username)
       .single();
 
@@ -65,6 +65,8 @@ export async function GET(
         followers,
         tipsEarned: Math.round(tipsEarned * 100) / 100, // Round to 2 decimals
         successRate,
+        xp: user.xp || 0,
+        curatorScore: user.curator_score || 0,
       },
       bio: user.bio || '',
     });

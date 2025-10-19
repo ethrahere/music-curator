@@ -19,7 +19,7 @@ export interface MusicTrack {
   artwork: string;
   embedUrl: string; // iframe embed URL
   tips: number;
-  coSignCount?: number; // Number of co-signs/likes
+  coSigns?: number; // Number of co-signs/likes
   sharedBy: {
     fid: number;
     username: string;

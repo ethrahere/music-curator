@@ -2,18 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { DollarSign } from 'lucide-react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { parseUnits, erc20Abi, type Address } from 'viem';
+import { erc20Abi, encodeFunctionData } from 'viem';
 import sdk from '@farcaster/frame-sdk';
 import { getUserContext } from '@/lib/farcaster';
 import {
   USDC_ADDRESS,
-  USDC_TOKEN_ID,
-  ETH_TOKEN_ID,
   USDC_DECIMALS,
-  ETH_DECIMALS,
-  ETH_USD_ESTIMATE,
-  SWAP_BUFFER_PERCENT,
   DEFAULT_TIP_AMOUNTS,
 } from '@/lib/constants';
 
@@ -23,6 +17,8 @@ interface TipButtonProps {
   curatorAddress: string; // Wallet address of curator
   curatorUsername: string;
   onTipSuccess?: (amount: number) => void;
+  totalTips?: number; // Current tip total to display
+  variant?: 'default' | 'compact'; // Display variant
 }
 
 export function TipButton({
@@ -30,113 +26,90 @@ export function TipButton({
   curatorFid,
   curatorAddress,
   curatorUsername,
-  onTipSuccess
+  onTipSuccess,
+  totalTips = 0,
+  variant = 'default'
 }: TipButtonProps) {
   const [tipAmount, setTipAmount] = useState('1.00');
   const [showModal, setShowModal] = useState(false);
-  const [showSwapPrompt, setShowSwapPrompt] = useState(false);
-  const [pendingTipAmount, setPendingTipAmount] = useState(0);
-
-  const { address } = useAccount();
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
-
-  // Read user's USDC balance using high-level wagmi hook
-  const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
-    address: USDC_ADDRESS,
-    abi: erc20Abi,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    query: {
-      enabled: !!address,
-    },
-  });
+  const [localTipTotal, setLocalTipTotal] = useState(totalTips);
+  const [isSending, setIsSending] = useState(false);
 
   const tipAmounts = DEFAULT_TIP_AMOUNTS;
 
-  // Check USDC balance (high-level, using wagmi)
-  const checkUSDCBalance = (amount: number): boolean => {
-    if (!address || !usdcBalance) {
-      return false;
+  // Sync local total with prop changes
+  useEffect(() => {
+    setLocalTipTotal(totalTips);
+  }, [totalTips]);
+
+  const handleTip = async (amount: number) => {
+    console.log('handleTip called', { amount, curatorAddress });
+
+    if (!curatorAddress) {
+      console.log('No curator address');
+      alert('This curator has not set up their wallet address yet');
+      return;
     }
 
-    const amountNeeded = parseUnits(amount.toString(), USDC_DECIMALS);
-
-    if (usdcBalance < amountNeeded) {
-      setPendingTipAmount(amount);
-      setShowSwapPrompt(true);
-      return false;
-    }
-
-    return true;
-  };
-
-  const handleTip = (amount: number) => {
-    // First check balance
-    const hasBalance = checkUSDCBalance(amount);
-    if (!hasBalance) return;
-
-    const amountInUSDC = parseUnits(amount.toString(), USDC_DECIMALS);
-
-    // Direct USDC transfer - user CANNOT change token (using high-level erc20Abi)
-    writeContract({
-      address: USDC_ADDRESS,
-      abi: erc20Abi,
-      functionName: 'transfer',
-      args: [curatorAddress as Address, amountInUSDC],
-    });
-  };
-
-  // Handle swap to USDC - swaps exact amount needed for tip
-  const handleSwap = async () => {
+    setIsSending(true);
     try {
-      if (pendingTipAmount <= 0) {
-        console.error('Invalid tip amount');
+      // Use Farcaster SDK's ethereum provider directly (like Player.tsx does)
+      const provider = sdk.wallet.ethProvider;
+
+      // Get user's wallet address
+      const accounts = await provider.request({
+        method: 'eth_accounts'
+      }) as string[];
+
+      if (!accounts || accounts.length === 0) {
+        alert('No wallet connected');
         return;
       }
 
-      // Calculate how much USDC is needed
-      const currentBalance = usdcBalance || BigInt(0);
-      const amountNeeded = parseUnits(pendingTipAmount.toString(), USDC_DECIMALS);
-      const shortfall = amountNeeded - currentBalance;
+      const fromAddress = accounts[0];
+      console.log('User wallet address:', fromAddress);
 
-      if (shortfall <= BigInt(0)) {
-        // User already has enough, just close the modal
-        setShowSwapPrompt(false);
-        return;
-      }
+      // Calculate amount in USDC smallest unit (6 decimals)
+      const amountInSmallestUnit = BigInt(Math.floor(amount * Math.pow(10, USDC_DECIMALS)));
+      console.log('Amount in USDC:', amountInSmallestUnit.toString());
 
-      // Note: swapToken only accepts sellAmount, not buyAmount
-      // We'll estimate the ETH needed (using ETH_USD_ESTIMATE ratio)
-      // The user will see the actual swap details in the Farcaster modal
-      const shortfallUSD = Number(shortfall) / Math.pow(10, USDC_DECIMALS);
-      const estimatedETH = (shortfallUSD / ETH_USD_ESTIMATE) * (1 + SWAP_BUFFER_PERCENT);
-      const sellAmount = parseUnits(estimatedETH.toFixed(ETH_DECIMALS), ETH_DECIMALS);
-
-      const result = await sdk.actions.swapToken({
-        buyToken: USDC_TOKEN_ID,
-        sellToken: ETH_TOKEN_ID,
-        sellAmount: sellAmount.toString(),
+      // Encode ERC-20 transfer function call using viem
+      const data = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: 'transfer',
+        args: [curatorAddress as `0x${string}`, amountInSmallestUnit]
       });
 
-      if (result.success) {
-        setShowSwapPrompt(false);
-        // Refetch balance after swap
-        await refetchBalance();
-      }
+      console.log('Sending transaction...');
+      // Trigger Warpcast transaction UI - this opens native confirmation modal
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: fromAddress as `0x${string}`,
+          to: USDC_ADDRESS,
+          data: data as `0x${string}`,
+          value: '0x0'
+        }]
+      }) as string;
+
+      console.log('Transaction sent:', txHash);
+      // Record in database
+      await recordTipInDatabase(txHash, amount);
+
     } catch (error) {
-      console.error('Swap failed:', error);
+      console.error('Tip error:', error);
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('User rejected') || errorMessage.includes('User denied')) {
+        alert('Transaction cancelled');
+      } else {
+        alert('Transaction failed: ' + errorMessage);
+      }
+    } finally {
+      setIsSending(false);
     }
   };
 
-  // Record tip when successful
-  useEffect(() => {
-    if (isSuccess && hash) {
-      recordTipInDatabase();
-    }
-  }, [isSuccess, hash]);
-
-  const recordTipInDatabase = async () => {
+  const recordTipInDatabase = async (txHash: string, amount: number) => {
     try {
       const tipper = await getUserContext();
 
@@ -144,10 +117,10 @@ export function TipButton({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          txHash: hash,
+          txHash: txHash,
           fromFid: tipper.fid,
           toFid: curatorFid,
-          requestedAmount: parseFloat(tipAmount),
+          requestedAmount: amount,
           timestamp: Date.now(),
           tipperUsername: tipper.username,
         }),
@@ -158,76 +131,54 @@ export function TipButton({
       if (response.ok && data.success) {
         setShowModal(false);
         setTipAmount('1.00');
+        const tipAmount = amount;
+        setLocalTipTotal(prev => prev + tipAmount);
         if (onTipSuccess) {
-          onTipSuccess(parseFloat(tipAmount));
+          onTipSuccess(tipAmount);
         }
+        alert(`$${amount} USDC sent successfully!`);
       } else {
         console.error('Failed to record tip:', data);
+        alert('Tip sent but failed to record in database');
       }
     } catch (error) {
       console.error('Tip recording error:', error);
+      alert('Tip sent but failed to record in database');
     }
   };
 
-  // Swap Prompt UI
-  if (showSwapPrompt) {
-    const currentBalance = usdcBalance || BigInt(0);
-    const amountNeeded = parseUnits(pendingTipAmount.toString(), USDC_DECIMALS);
-    const shortfall = amountNeeded - currentBalance;
-    const shortfallUSD = Number(shortfall) / Math.pow(10, USDC_DECIMALS);
-    const currentUSD = Number(currentBalance) / Math.pow(10, USDC_DECIMALS);
 
-    return (
-      <div
-        className="fixed inset-0 z-[100] flex items-center justify-center"
-        style={{
-          background: 'rgba(236, 236, 236, 0.6)',
-          backdropFilter: 'blur(12px)',
-        }}
-        onClick={() => setShowSwapPrompt(false)}
-      >
-        <div
-          className="panel-surface p-6 w-full max-w-md mx-4"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h3 className="text-lg font-bold text-[#2E2E2E] mb-2 text-center lowercase">
-            need more usdc
-          </h3>
-          <div className="text-sm text-[#5E5E5E] text-center mb-4 space-y-1">
-            <p className="lowercase">tip amount: ${pendingTipAmount.toFixed(2)} usdc</p>
-            <p className="lowercase">your balance: ${currentUSD.toFixed(2)} usdc</p>
-            <p className="font-bold text-[#2E2E2E] lowercase">need to swap: ${shortfallUSD.toFixed(2)} usdc</p>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              onClick={handleSwap}
-              className="btn-pastel w-full"
-            >
-              swap ${shortfallUSD.toFixed(2)} usdc
-            </button>
-            <button
-              onClick={() => setShowSwapPrompt(false)}
-              className="w-full py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase"
-            >
-              cancel
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleButtonClick = () => {
+    console.log('Tip button clicked! Opening modal...', { curatorUsername, totalTips: localTipTotal });
+    setShowModal(true);
+  };
 
   return (
     <>
       {/* Tip Button */}
-      <button
-        onClick={() => setShowModal(true)}
-        className="btn-pastel"
-      >
-        <DollarSign className="w-5 h-5" />
-        <span className="text-sm font-bold lowercase">tip</span>
-      </button>
+      {variant === 'compact' ? (
+        <button
+          onClick={handleButtonClick}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:scale-105 active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #a8e6c5 0%, #7fd4a8 100%)',
+            boxShadow: '3px 3px 8px rgba(168, 230, 197, 0.4)',
+          }}
+        >
+          <DollarSign className="w-4 h-4 text-[#0b1a12]" />
+          <span className="mono-number text-sm font-bold text-[#0b1a12]">
+            ${localTipTotal >= 1 ? localTipTotal.toFixed(0) : localTipTotal.toFixed(2)}
+          </span>
+        </button>
+      ) : (
+        <button
+          onClick={() => setShowModal(true)}
+          className="btn-pastel"
+        >
+          <DollarSign className="w-5 h-5" />
+          <span className="text-sm font-bold lowercase">tip</span>
+        </button>
+      )}
 
       {/* Tip Modal */}
       {showModal && (
@@ -255,8 +206,11 @@ export function TipButton({
               {tipAmounts.map((amount) => (
                 <button
                   key={amount}
-                  onClick={() => handleTip(amount)}
-                  disabled={isPending || isConfirming || !usdcBalance}
+                  onClick={() => {
+                    console.log('Preset amount clicked:', amount);
+                    handleTip(amount);
+                  }}
+                  disabled={isSending}
                   className="btn-neomorph px-6 py-4 font-bold disabled:opacity-50"
                 >
                   ${amount}
@@ -279,17 +233,22 @@ export function TipButton({
                 />
               </div>
               <button
-                onClick={() => tipAmount && handleTip(Number(tipAmount))}
-                disabled={!tipAmount || isPending || isConfirming || !usdcBalance}
+                onClick={() => {
+                  console.log('Send tip clicked', { tipAmount, isSending });
+                  if (tipAmount) {
+                    handleTip(Number(tipAmount));
+                  }
+                }}
+                disabled={!tipAmount || isSending}
                 className="btn-neomorph w-full disabled:opacity-50 lowercase"
               >
-                {isConfirming ? 'confirming...' : isPending ? 'sending usdc...' : 'send tip'}
+                {isSending ? 'sending usdc...' : 'send tip'}
               </button>
             </div>
 
             <button
               onClick={() => setShowModal(false)}
-              disabled={isPending || isConfirming}
+              disabled={isSending}
               className="w-full mt-4 py-2 text-[#5E5E5E] hover:text-[#2E2E2E] text-sm font-medium transition-colors lowercase disabled:opacity-50"
             >
               cancel

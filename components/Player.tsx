@@ -192,6 +192,12 @@ export default function Player({ track, onClose, onTip }: PlayerProps) {
     }
 
     setPendingTipAmount(amount);
+
+    const hasBalance = await checkUSDCBalance(amount);
+    if (!hasBalance) {
+      return;
+    }
+
     setIsTipping(true);
 
     try {

@@ -382,3 +382,13 @@ body::before {
 .modal-content-exit {
   animation: modal-slide-down 200ms ease-in;
 }
+
+/* Hide scrollbar for horizontal scroll */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
