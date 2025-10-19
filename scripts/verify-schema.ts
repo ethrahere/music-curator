@@ -70,12 +70,18 @@ async function verifySchema() {
 
   console.log(`✅ Recommendations with track_id: ${recommendations?.length || 0} found`);
   if (recommendations && recommendations.length > 0) {
+    const sampleRecommendation = recommendations[0];
+    const trackData = sampleRecommendation.track as any;
+    const sampleTrack = Array.isArray(trackData)
+      ? trackData[0]
+      : trackData;
+
     console.log('   Sample recommendation:', {
-      id: recommendations[0].id,
-      curator_fid: recommendations[0].curator_fid,
-      original_url: recommendations[0].original_url?.substring(0, 50) + '...',
-      track_linked: !!recommendations[0].track,
-      track_title: recommendations[0].track?.title,
+      id: sampleRecommendation.id,
+      curator_fid: sampleRecommendation.curator_fid,
+      original_url: (sampleRecommendation.original_url as string)?.substring(0, 50) + '...',
+      track_linked: !!sampleTrack,
+      track_title: sampleTrack?.title,
     });
   }
 
@@ -104,17 +110,29 @@ async function verifySchema() {
   console.log(`   Total recommendations: ${totalRecs || 0}`);
   console.log(`   Ratio: ${totalRecs && totalTracks ? (totalRecs / totalTracks).toFixed(2) : 0} recommendations per track`);
 
-  // Check for duplicate tracks (taste overlap)
-  const { data: duplicates } = await supabase.rpc('get_track_recommendation_counts' as any, {}).limit(10);
-
   // Manual query for tracks with multiple recommendations
-  const { data: popularTracks } = await supabase
+  const { data: popularTracksData, error: popularTracksError } = await supabase
     .from('recommendations')
     .select('track_id, track:tracks(title, artist)')
     .not('track_id', 'is', null);
 
-  if (popularTracks) {
-    const trackCounts = popularTracks.reduce((acc: any, rec: any) => {
+  if (popularTracksError) {
+    console.error('❌ Error querying popular tracks:', popularTracksError);
+    return;
+  }
+
+  type PopularTrack = {
+    track_id: string | null;
+    track: {
+      title: string | null;
+      artist: string | null;
+    } | null;
+  };
+
+  const popularTracks: PopularTrack[] = (popularTracksData as unknown as PopularTrack[]) ?? [];
+
+  if (popularTracks.length > 0) {
+    const trackCounts = popularTracks.reduce<Record<string, number>>((acc, rec) => {
       if (rec.track_id) {
         acc[rec.track_id] = (acc[rec.track_id] || 0) + 1;
       }
@@ -122,18 +140,19 @@ async function verifySchema() {
     }, {});
 
     const multipleRecs = Object.entries(trackCounts)
-      .filter(([_, count]) => (count as number) > 1)
-      .sort((a, b) => (b[1] as number) - (a[1] as number));
+      .map(([trackId, count]) => ({ trackId, count }))
+      .filter(({ count }) => count > 1)
+      .sort((a, b) => b.count - a.count);
 
     if (multipleRecs.length > 0) {
       console.log('');
       console.log('🎯 Taste Overlap Detected:');
       console.log(`   ${multipleRecs.length} tracks have multiple curators!`);
 
-      const topTrackId = multipleRecs[0][0];
+      const topTrackId = multipleRecs[0].trackId;
       const topTrack = popularTracks.find(r => r.track_id === topTrackId);
       if (topTrack?.track) {
-        console.log(`   Top: "${topTrack.track.title}" by ${topTrack.track.artist} (${multipleRecs[0][1]} curators)`);
+        console.log(`   Top: "${topTrack.track.title}" by ${topTrack.track.artist} (${multipleRecs[0].count} curators)`);
       }
     }
   }
