@@ -326,7 +326,7 @@ function ListenPageContent() {
       </div>
 
       {/* Interactive Notch - Above Navbar (iPhone style) */}
-      <div className="fixed bottom-16 left-0 right-0 z-50 flex justify-center pointer-events-none">
+      <div className="fixed bottom-[5rem] left-0 right-0 z-50 flex justify-center pointer-events-none">
         <div className="pointer-events-auto">
           <div
             className="flex items-center gap-2 px-6 py-2"
@@ -391,7 +391,6 @@ function ListenPageContent() {
       {/* Bottom Navigation */}
       <BottomNav
         userPfpUrl={userContext?.pfpUrl}
-        onShareClick={() => {}}
       />
 
       <style jsx global>{`

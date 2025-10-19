@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import ShareMusicModal from '@/components/ShareMusicModal';
 import MusicCard from '@/components/MusicCard';
 // import CurationCard from '@/components/CurationCard'; // Will use later
 // import TopCurators from '@/components/TopCurators'; // Temporarily disabled
@@ -21,7 +20,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [userContext, setUserContext] = useState<{ fid: number; username: string; pfpUrl?: string } | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'electronic'>('all');
   const [xpModalData, setXpModalData] = useState<{ xp: XPData; trackTitle: string } | null>(null);
@@ -106,119 +104,6 @@ export default function Home() {
     }
   }, [page]);
 
-  const handleSubmit = async (
-    url: string,
-    metadata: MusicMetadata,
-    review?: string,
-    genre?: string,
-    moods?: string[]
-  ) => {
-    try {
-      // Get user context
-      const user = await getUserContext();
-      console.log('User context for track submission:', user);
-
-      const resolveShareBaseUrl = () => {
-        // Prefer a deploy URL so casts never point at localhost when sharing from dev
-        const fallback = 'https://music-curator.vercel.app';
-        const envUrl = process.env.NEXT_PUBLIC_BASE_URL;
-        const runtimeOrigin = typeof window !== 'undefined' ? window.location.origin : undefined;
-
-        const candidates = [envUrl, runtimeOrigin, fallback];
-        for (const candidate of candidates) {
-          if (!candidate) continue;
-          try {
-            const parsed = new URL(candidate);
-            if (!/localhost|127\.0\.0\.1/.test(parsed.hostname)) {
-              return parsed.origin;
-            }
-          } catch (error) {
-            // Ignore malformed URLs and try the next candidate
-          }
-        }
-        return fallback;
-      };
-
-      // Create track
-      const track: MusicTrack = {
-        id: Date.now().toString(),
-        url,
-        platform: metadata.platform,
-        title: metadata.title,
-        artist: metadata.artist,
-        artwork: metadata.artwork,
-        embedUrl: metadata.embedUrl,
-        tips: 0,
-        sharedBy: user,
-        timestamp: Date.now(),
-      };
-
-      // Save track with optional fields
-      console.log('Submitting track:', {
-        url: track.url,
-        artwork: track.artwork,
-        embedUrl: track.embedUrl,
-        title: track.title
-      });
-
-      const response = await fetch('/api/tracks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...track,
-          review: review || '',
-          genre: genre || 'general',
-          moods: moods || [],
-        }),
-      });
-
-      const data = await response.json();
-
-      console.log('API response:', {
-        success: data.success,
-        trackId: data.track?.id,
-        fullTrack: data.track
-      });
-
-      if (data.success && data.track) {
-        // Close share modal first
-        setIsShareModalOpen(false);
-
-        // Show XP success modal if XP data exists
-        if (data.xp) {
-          setXpModalData({
-            xp: data.xp,
-            trackTitle: `${data.track.title} - ${data.track.artist}`
-          });
-        }
-
-        // Share to Farcaster using DB-generated ID
-        const baseUrl = resolveShareBaseUrl();
-        const trackUrl = `${baseUrl}/track/${data.track.id}`;
-
-        console.log('Sharing to Farcaster with:', {
-          baseUrl,
-          trackId: data.track.id,
-          trackUrl,
-          artwork: data.track.artwork
-        });
-
-        // Build cast text with optional review
-        let castText = `🎵 ${data.track.title} - ${data.track.artist}`;
-        if (review && review.trim()) {
-          castText = `${review}\n\n🎵 ${data.track.title} - ${data.track.artist}`;
-        }
-
-        await shareToFarcaster(trackUrl, castText, data.track.artwork);
-
-        // Refresh tracks with current filter
-        setPage(1);
-        fetchTracks(1, selectedFilter);
-      }
-    } catch (error) {
-      console.error('Failed to submit track:', error);
-    }
-  };
 
   const handleTip = async (trackId: string) => {
     try {
@@ -260,13 +145,6 @@ export default function Home() {
           </div>
         </div>
       </header>
-
-      {/* Share Music Modal */}
-      <ShareMusicModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        onSubmit={handleSubmit}
-      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto pb-24 pt-6">
@@ -372,7 +250,6 @@ export default function Home() {
       {/* Bottom Navigation */}
       <BottomNav
         userPfpUrl={userContext?.pfpUrl}
-        onShareClick={() => setIsShareModalOpen(true)}
       />
     </div>
   );

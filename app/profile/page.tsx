@@ -126,16 +126,8 @@ export default function ProfilePage() {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="panel-surface px-6 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => router.push('/')}
-                  className="flex-shrink-0 hover:opacity-80 transition-opacity"
-                >
-                  <ArrowLeft className="w-6 h-6 text-[#0b1a12]" />
-                </button>
-                <h1 className="text-lg font-bold text-[#0b1a12]">Profile</h1>
-              </div>
-              <div className="w-6 h-6 opacity-0 pointer-events-none" />
+              <h1 className="text-lg font-bold text-[#0b1a12]">Profile</h1>
+              <User className="w-6 h-6 text-[#a8e6c5]" />
             </div>
           </div>
         </div>
@@ -344,7 +336,6 @@ export default function ProfilePage() {
       {/* Bottom Navigation */}
       <BottomNav
         userPfpUrl={userContext?.pfpUrl}
-        onShareClick={() => router.push('/')}
       />
     </div>
   );

@@ -343,41 +343,184 @@ export async function POST(request: NextRequest) {
       });
 
     } else {
-      // Fallback: Use old schema if Songlink fails
-      console.log('[TRACK SUBMISSION] Using fallback (old schema)');
-      const insertData = {
-        curator_fid: curatorFid,
-        music_url: track.url,
-        song_title: track.title,
-        artist: track.artist,
-        review: body.review || '',
-        genre: body.genre || 'general',
-        moods: body.moods || [],
-        tip_count: 0,
-        total_tips_usd: 0,
-        platform: track.platform,
-        artwork_url: track.artwork,
-        embed_url: track.embedUrl,
+      // Fallback: Create track entry manually if Songlink fails
+      console.log('[TRACK SUBMISSION] Using fallback - creating track from provided metadata');
+
+      // Step 1: Create track entry with available metadata
+      const { data: newTrack, error: trackError } = await supabase
+        .from('tracks')
+        .insert({
+          songlink_id: null, // No Songlink normalization available
+          title: track.title,
+          artist: track.artist,
+          album_artwork_url: track.artwork,
+          // Store the original URL in the appropriate platform field
+          spotify_url: track.platform === 'spotify' ? track.url : null,
+          apple_music_url: track.platform === 'apple music' ? track.url : null,
+          youtube_url: track.platform === 'youtube' ? track.url : null,
+          soundcloud_url: track.platform === 'soundcloud' ? track.url : null,
+          youtube_music_url: null,
+          tidal_url: null,
+          songlink_page_url: null,
+        })
+        .select('id')
+        .single();
+
+      if (trackError) {
+        console.error('[TRACK SUBMISSION] Fallback - Error creating track:', trackError);
+        return NextResponse.json({ success: false, error: 'Failed to create track' }, { status: 500 });
+      }
+
+      trackId = newTrack.id;
+      console.log('[TRACK SUBMISSION] Fallback - Track created with ID:', trackId);
+
+      // Step 2: Check for taste overlap (same as normal flow)
+      console.log('[TRACK SUBMISSION] Fallback - Checking for taste overlap...');
+      const { data: existingRecs } = await supabase
+        .from('recommendations')
+        .select(`
+          id,
+          curator_fid,
+          curator:users!curator_fid(farcaster_fid, username, farcaster_pfp_url)
+        `)
+        .eq('track_id', trackId)
+        .neq('curator_fid', curatorFid)
+        .limit(10);
+
+      type TasteOverlapRecord = {
+        id: string;
+        curator_fid: number;
+        curator: {
+          farcaster_fid: number;
+          username: string | null;
+          farcaster_pfp_url: string | null;
+        } | null;
       };
 
-      const { data, error } = await supabase
+      const tasteOverlapCurators: TasteOverlapRecord[] = (existingRecs || []).map((rec) => {
+        const curator = Array.isArray(rec.curator) ? rec.curator[0] : rec.curator;
+        return {
+          id: rec.id,
+          curator_fid: rec.curator_fid,
+          curator: curator
+            ? {
+                farcaster_fid: curator.farcaster_fid,
+                username: curator.username ?? null,
+                farcaster_pfp_url: curator.farcaster_pfp_url ?? null,
+              }
+            : null,
+        };
+      });
+      console.log(`[TRACK SUBMISSION] Fallback - Found ${tasteOverlapCurators.length} other curator(s) who shared this track`);
+
+      // Step 3: Create recommendation with track_id
+      const { data: recommendation, error: recError } = await supabase
         .from('recommendations')
-        .insert(insertData)
+        .insert({
+          track_id: trackId,
+          curator_fid: curatorFid,
+          music_url: track.url,
+          song_title: track.title,
+          artist: track.artist,
+          artwork_url: track.artwork,
+          review: body.review || '',
+          genre: body.genre || 'general',
+          moods: body.moods || [],
+          tip_count: 0,
+          total_tips_usd: 0,
+          is_public: true,
+          platform: track.platform,
+          embed_url: track.embedUrl,
+        })
         .select()
         .single();
 
-      if (error) {
-        console.error('[TRACK SUBMISSION] Fallback insert error:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+      if (recError) {
+        console.error('[TRACK SUBMISSION] Fallback - Error creating recommendation:', recError);
+        return NextResponse.json({ success: false, error: recError.message }, { status: 400 });
       }
 
+      // Step 4: Award XP (same as normal flow)
+      console.log('[TRACK SUBMISSION] Fallback - Awarding XP...');
+      let totalXpEarned = 0;
+      const xpActivities = [];
+
+      // Award 10 XP for sharing
+      await supabase.rpc('log_curator_activity', {
+        p_curator_fid: curatorFid,
+        p_activity_type: 'share',
+        p_xp_earned: 10,
+        p_recommendation_id: recommendation.id,
+        p_track_id: trackId,
+        p_metadata: null
+      });
+      totalXpEarned += 10;
+      xpActivities.push({ type: 'share', xp: 10 });
+      console.log('[TRACK SUBMISSION] Fallback - +10 XP for sharing');
+
+      // Award 50 XP per taste overlap curator
+      if (tasteOverlapCurators.length > 0) {
+        for (const otherRec of tasteOverlapCurators) {
+          await supabase.rpc('log_curator_activity', {
+            p_curator_fid: curatorFid,
+            p_activity_type: 'taste_overlap',
+            p_xp_earned: 50,
+            p_recommendation_id: recommendation.id,
+            p_track_id: trackId,
+            p_metadata: {
+              other_curator_fid: otherRec.curator_fid,
+              other_curator_username: otherRec.curator?.username,
+              other_curator_pfp: otherRec.curator?.farcaster_pfp_url
+            }
+          });
+          totalXpEarned += 50;
+          xpActivities.push({
+            type: 'taste_overlap',
+            xp: 50,
+            curator: {
+              fid: otherRec.curator_fid,
+              username: otherRec.curator?.username,
+              pfpUrl: otherRec.curator?.farcaster_pfp_url
+            }
+          });
+          console.log(`[TRACK SUBMISSION] Fallback - +50 XP for taste overlap with @${otherRec.curator?.username}`);
+        }
+      }
+
+      // Get updated user XP total
+      const { data: userData } = await supabase
+        .from('users')
+        .select('xp')
+        .eq('farcaster_fid', curatorFid)
+        .single();
+
+      console.log(`[TRACK SUBMISSION] Fallback - Total XP earned: ${totalXpEarned}, User total: ${userData?.xp || 0}`);
+
+      // Return track with DB-generated ID
       const savedTrack: MusicTrack = {
-        ...track,
-        id: data.id,
+        id: recommendation.id,
+        url: track.url,
+        platform: track.platform,
+        title: track.title,
+        artist: track.artist,
+        artwork: track.artwork,
+        embedUrl: track.embedUrl,
         tips: 0,
+        sharedBy: track.sharedBy,
+        timestamp: new Date(recommendation.created_at).getTime(),
+        review: body.review,
       };
 
-      return NextResponse.json({ success: true, track: savedTrack });
+      console.log('[TRACK SUBMISSION] Fallback - Successfully saved track and recommendation');
+      return NextResponse.json({
+        success: true,
+        track: savedTrack,
+        xp: {
+          earned: totalXpEarned,
+          total: userData?.xp || 0,
+          activities: xpActivities
+        }
+      });
     }
   } catch (error) {
     console.error('[TRACK SUBMISSION] Error saving track:', error);

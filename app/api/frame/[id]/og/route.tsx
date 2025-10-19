@@ -7,24 +7,6 @@ export const runtime = 'edge';
 // Enable revalidation every 24 hours
 export const revalidate = 86400;
 
-interface TrackData {
-  id: string;
-  song_title: string;
-  artist: string;
-  curator_fid: number;
-  artwork_url: string;
-  review?: string;
-}
-
-interface CuratorData {
-  username: string;
-  farcaster_pfp_url: string;
-}
-
-interface CuratorScore {
-  curator_score: number;
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
