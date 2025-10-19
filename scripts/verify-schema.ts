@@ -71,7 +71,7 @@ async function verifySchema() {
   console.log(`✅ Recommendations with track_id: ${recommendations?.length || 0} found`);
   if (recommendations && recommendations.length > 0) {
     const sampleRecommendation = recommendations[0];
-    const trackData = sampleRecommendation.track as any;
+    const trackData = sampleRecommendation.track as { id: string; title: string; artist: string; songlink_id: string } | { id: string; title: string; artist: string; songlink_id: string }[] | null;
     const sampleTrack = Array.isArray(trackData)
       ? trackData[0]
       : trackData;
