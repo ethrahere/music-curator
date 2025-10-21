@@ -99,14 +99,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const track: MusicTrack = body;
-    const curatorFid = track.sharedBy.fid;
-    const curatorUsername = track.sharedBy.username || 'anonymous';
-    const curatorPfpUrl = track.sharedBy.pfpUrl;
-    const curatorWalletAddress = track.sharedBy.walletAddress;
+
+    // Support both formats: direct fields (from share page) and MusicTrack object
+    const url = body.url;
+    const curatorFid = body.curatorFid;
+    const curatorUsername = body.curatorUsername || 'anonymous';
+    const curatorPfpUrl = body.curatorPfpUrl;
+    const curatorWalletAddress = body.curatorWalletAddress;
+    const embedUrl = body.embedUrl;
+
+    // Validate required fields
+    if (!url || !curatorFid) {
+      console.error('[TRACK SUBMISSION] Missing required fields:', { url, curatorFid });
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: url and curatorFid' },
+        { status: 400 }
+      );
+    }
 
     console.log('[TRACK SUBMISSION] Received track data:', {
-      url: track.url,
+      url,
       review: body.review,
       genre: body.genre,
       moods: body.moods,
@@ -115,12 +127,10 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Fetch Songlink data to normalize the track
     console.log('[TRACK SUBMISSION] Calling Songlink API...');
-    const songlinkData = await fetchSonglinkData(track.url);
+    const songlinkData = await fetchSonglinkData(url);
 
     if (!songlinkData) {
-      console.error('[TRACK SUBMISSION] Songlink API failed, falling back to manual entry');
-      // Fall back to manual track entry if Songlink fails
-      // This maintains backward compatibility
+      console.error('[TRACK SUBMISSION] Songlink API failed, will use fallback with provided metadata');
     }
 
     // Ensure user exists in users table (upsert) - store wallet address for tipping
@@ -230,7 +240,7 @@ export async function POST(request: NextRequest) {
         .insert({
           track_id: trackId,
           curator_fid: curatorFid,
-          music_url: track.url, // Original URL curator pasted
+          music_url: url, // Original URL curator pasted
           song_title: songlinkData.title, // Copy from Songlink for backward compatibility
           artist: songlinkData.artist, // Copy from Songlink for backward compatibility
           artwork_url: songlinkData.artworkUrl, // Copy from Songlink for backward compatibility
@@ -240,8 +250,8 @@ export async function POST(request: NextRequest) {
           tip_count: 0,
           total_tips_usd: 0,
           is_public: true,
-          platform: detectPlatform(track.url),
-          embed_url: track.embedUrl || '',
+          platform: detectPlatform(url),
+          embed_url: embedUrl || '',
         })
         .select()
         .single();
@@ -307,34 +317,10 @@ export async function POST(request: NextRequest) {
 
       console.log(`[TRACK SUBMISSION] Total XP earned: ${totalXpEarned}, User total: ${userData?.xp || 0}`);
 
-      // Return track with DB-generated ID and Songlink data
-      const savedTrack: MusicTrack = {
-        id: recommendation.id,
-        url: track.url,
-        platform: detectPlatform(track.url),
-        title: songlinkData.title,
-        artist: songlinkData.artist,
-        artwork: songlinkData.artworkUrl,
-        embedUrl: track.embedUrl || '',
-        tips: 0,
-        sharedBy: track.sharedBy,
-        timestamp: new Date(recommendation.created_at).getTime(),
-        review: body.review,
-        platformLinks: {
-          spotify: songlinkData.spotifyUrl,
-          appleMusic: songlinkData.appleMusicUrl,
-          youtube: songlinkData.youtubeUrl,
-          soundcloud: songlinkData.soundcloudUrl,
-          youtubeMusic: songlinkData.youtubeMusicUrl,
-          tidal: songlinkData.tidalUrl,
-          songlink: songlinkData.songlinkPageUrl,
-        },
-      };
-
+      // Return success response with XP data
       console.log('[TRACK SUBMISSION] Successfully saved track and recommendation');
       return NextResponse.json({
         success: true,
-        track: savedTrack,
         xp: {
           earned: totalXpEarned,
           total: userData?.xp || 0,
@@ -343,22 +329,21 @@ export async function POST(request: NextRequest) {
       });
 
     } else {
-      // Fallback: Create track entry manually if Songlink fails
+      // Fallback: Songlink failed, use provided metadata
       console.log('[TRACK SUBMISSION] Using fallback - creating track from provided metadata');
 
-      // Step 1: Create track entry with available metadata
+      // Create track entry with available metadata
       const { data: newTrack, error: trackError } = await supabase
         .from('tracks')
         .insert({
-          songlink_id: null, // No Songlink normalization available
-          title: track.title,
-          artist: track.artist,
-          album_artwork_url: track.artwork,
-          // Store the original URL in the appropriate platform field
-          spotify_url: track.platform === 'spotify' ? track.url : null,
-          apple_music_url: track.platform === 'apple music' ? track.url : null,
-          youtube_url: track.platform === 'youtube' ? track.url : null,
-          soundcloud_url: track.platform === 'soundcloud' ? track.url : null,
+          songlink_id: url, // Use URL as unique identifier
+          title: body.title,
+          artist: body.artist,
+          album_artwork_url: body.artwork,
+          spotify_url: body.platform === 'spotify' ? url : null,
+          apple_music_url: body.platform === 'apple music' ? url : null,
+          youtube_url: body.platform === 'youtube' ? url : null,
+          soundcloud_url: body.platform === 'soundcloud' ? url : null,
           youtube_music_url: null,
           tidal_url: null,
           songlink_page_url: null,
@@ -374,8 +359,7 @@ export async function POST(request: NextRequest) {
       trackId = newTrack.id;
       console.log('[TRACK SUBMISSION] Fallback - Track created with ID:', trackId);
 
-      // Step 2: Check for taste overlap (same as normal flow)
-      console.log('[TRACK SUBMISSION] Fallback - Checking for taste overlap...');
+      // Check for taste overlap
       const { data: existingRecs } = await supabase
         .from('recommendations')
         .select(`
@@ -411,26 +395,25 @@ export async function POST(request: NextRequest) {
             : null,
         };
       });
-      console.log(`[TRACK SUBMISSION] Fallback - Found ${tasteOverlapCurators.length} other curator(s) who shared this track`);
 
-      // Step 3: Create recommendation with track_id
+      // Create recommendation
       const { data: recommendation, error: recError } = await supabase
         .from('recommendations')
         .insert({
           track_id: trackId,
           curator_fid: curatorFid,
-          music_url: track.url,
-          song_title: track.title,
-          artist: track.artist,
-          artwork_url: track.artwork,
+          music_url: url,
+          song_title: body.title,
+          artist: body.artist,
+          artwork_url: body.artwork,
           review: body.review || '',
           genre: body.genre || 'general',
           moods: body.moods || [],
           tip_count: 0,
           total_tips_usd: 0,
           is_public: true,
-          platform: track.platform,
-          embed_url: track.embedUrl,
+          platform: body.platform || detectPlatform(url),
+          embed_url: embedUrl || '',
         })
         .select()
         .single();
@@ -440,12 +423,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: recError.message }, { status: 400 });
       }
 
-      // Step 4: Award XP (same as normal flow)
-      console.log('[TRACK SUBMISSION] Fallback - Awarding XP...');
+      // Award XP
       let totalXpEarned = 0;
       const xpActivities = [];
 
-      // Award 10 XP for sharing
       await supabase.rpc('log_curator_activity', {
         p_curator_fid: curatorFid,
         p_activity_type: 'share',
@@ -456,9 +437,8 @@ export async function POST(request: NextRequest) {
       });
       totalXpEarned += 10;
       xpActivities.push({ type: 'share', xp: 10 });
-      console.log('[TRACK SUBMISSION] Fallback - +10 XP for sharing');
 
-      // Award 50 XP per taste overlap curator
+      // Award taste overlap XP
       if (tasteOverlapCurators.length > 0) {
         for (const otherRec of tasteOverlapCurators) {
           await supabase.rpc('log_curator_activity', {
@@ -483,38 +463,18 @@ export async function POST(request: NextRequest) {
               pfpUrl: otherRec.curator?.farcaster_pfp_url
             }
           });
-          console.log(`[TRACK SUBMISSION] Fallback - +50 XP for taste overlap with @${otherRec.curator?.username}`);
         }
       }
 
-      // Get updated user XP total
       const { data: userData } = await supabase
         .from('users')
         .select('xp')
         .eq('farcaster_fid', curatorFid)
         .single();
 
-      console.log(`[TRACK SUBMISSION] Fallback - Total XP earned: ${totalXpEarned}, User total: ${userData?.xp || 0}`);
-
-      // Return track with DB-generated ID
-      const savedTrack: MusicTrack = {
-        id: recommendation.id,
-        url: track.url,
-        platform: track.platform,
-        title: track.title,
-        artist: track.artist,
-        artwork: track.artwork,
-        embedUrl: track.embedUrl,
-        tips: 0,
-        sharedBy: track.sharedBy,
-        timestamp: new Date(recommendation.created_at).getTime(),
-        review: body.review,
-      };
-
       console.log('[TRACK SUBMISSION] Fallback - Successfully saved track and recommendation');
       return NextResponse.json({
         success: true,
-        track: savedTrack,
         xp: {
           earned: totalXpEarned,
           total: userData?.xp || 0,
@@ -522,6 +482,7 @@ export async function POST(request: NextRequest) {
         }
       });
     }
+
   } catch (error) {
     console.error('[TRACK SUBMISSION] Error saving track:', error);
     return NextResponse.json({ success: false, error: 'Invalid track data' }, { status: 400 });
