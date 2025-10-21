@@ -6,7 +6,7 @@ import { isValidMusicUrl, extractMusicMetadata } from '@/lib/music-parser';
 import { MusicMetadata } from '@/types/music';
 import { Loader2, Link as LinkIcon, Check, AlertCircle, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
-import { getUserContext, initializeFarcaster } from '@/lib/farcaster';
+import { getUserContext, initializeFarcaster, shareToFarcaster } from '@/lib/farcaster';
 import BottomNav from '@/components/BottomNav';
 
 const GENRE_OPTIONS = [
@@ -111,7 +111,18 @@ export default function SharePage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        router.push('/profile');
+        // Generate the frame URL for this recommendation
+        const baseUrl = window.location.origin;
+        const frameUrl = `${baseUrl}/api/frame/${data.recommendationId}`;
+
+        // Create cast text with track info
+        const castText = `Just shared: "${preview.title}" by ${preview.artist}${review ? `\n\n${review}` : ''}`;
+
+        // Share to Farcaster with the frame
+        await shareToFarcaster(frameUrl, castText);
+
+        // Redirect to feed
+        router.push('/');
       } else {
         setError(data.error || 'Failed to share track');
       }

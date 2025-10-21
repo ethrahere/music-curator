@@ -321,6 +321,7 @@ export async function POST(request: NextRequest) {
       console.log('[TRACK SUBMISSION] Successfully saved track and recommendation');
       return NextResponse.json({
         success: true,
+        recommendationId: recommendation.id,
         xp: {
           earned: totalXpEarned,
           total: userData?.xp || 0,
@@ -475,6 +476,7 @@ export async function POST(request: NextRequest) {
       console.log('[TRACK SUBMISSION] Fallback - Successfully saved track and recommendation');
       return NextResponse.json({
         success: true,
+        recommendationId: recommendation.id,
         xp: {
           earned: totalXpEarned,
           total: userData?.xp || 0,
